@@ -326,12 +326,14 @@ body.offline .offline-pill{display:block}
   justify-content:space-between;margin-bottom:6px;
 }
 .job-name{
-  font-size:1rem;font-weight:700;
-  color:var(--white);letter-spacing:-.2px;
+  font-size:.65rem;font-weight:600;
+  color:var(--muted);letter-spacing:1px;
+  text-transform:uppercase;font-family:var(--mono);
 }
 .job-addr{
-  font-family:var(--mono);font-size:.68rem;
-  color:var(--muted);margin-top:2px;line-height:1.5;
+  font-family:var(--body);font-size:.95rem;font-weight:700;
+  color:var(--white);margin-top:3px;line-height:1.4;
+  letter-spacing:-.2px;
 }
 .job-price{
   font-family:var(--body);font-size:1rem;font-weight:800;
@@ -772,7 +774,7 @@ function card(job){
       <div class="job-body">
         <div class="job-top">
           <div>
-            <div class="job-name">${c.name||'Customer'}</div>
+            <div class="job-name">Job #${String(jobs.indexOf(job)+1).padStart(3,'0')}</div>
             <div class="job-addr">${c.address||''}</div>
           </div>
           <div class="job-price">£${pr.toFixed(2)}</div>
@@ -857,7 +859,7 @@ function updateBadge(){
 // ═══════════════════════════════════════
 function openPay(job){
   const c=job.customer||{};
-  document.getElementById('payName').textContent=c.name||'';
+  document.getElementById('payName').textContent = (c.address||'').split(',')[0];
   document.getElementById('payAmt').textContent=`£${parseFloat(c.price||0).toFixed(2)}`;
   payMethod='cash';
   document.getElementById('mCash').classList.add('sel');
