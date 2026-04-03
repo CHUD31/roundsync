@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="RoundSync">
+<meta name="theme-color" content="#0a0f1e">
+<title>RoundSync — Field App</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+
+:root{
+  --bg:        #0a0f1e;
+  --surface:   #111827;
+  --card-bg:   #ffffff;
+  --primary:   #3b82f6;
+  --primary-d: #1d4ed8;
+  --success:   #22c55e;
+  --danger:    #ef4444;
+  --warning:   #f59e0b;
+  --purple:    #a78bfa;
+  --text:      #111827;
+  --text-2:    #6b7280;
+  --border:    #e5e7eb;
+  --mono:      'DM Mono', monospace;
+  --display:   'Syne', sans-serif;
+}
+
+body{
+  font-family:var(--display);
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  max-width:480px;
+  margin:0 auto;
+  overflow-x:hidden;
+}
+
+/* ── SCREEN MANAGER ─────────────────── */
+.screen{display:none;min-height:100vh;flex-direction:column}
+.screen.active{display:flex}
+
+/* ── LOADING OVERLAY ────────────────── */
+.loading-overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(10,15,30,.85);
+  backdrop-filter:blur(6px);
+  z-index:999;align-items:center;
+  justify-content:center;flex-direction:column;gap:14px;
+}
+.loading-overlay.show{display:flex}
+.spinner{
+  width:36px;height:36px;
+  border:3px solid rgba(255,255,255,.1);
+  border-top-color:var(--primary);
+  border-radius:50%;
+  animation:spin .7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{color:rgba(255,255,255,.5);font-family:var(--mono);font-size:.8rem}
+
+/* ── TOAST ──────────────────────────── */
+.toast{
+  position:fixed;top:16px;left:50%;
+  transform:translateX(-50%) translateY(-80px);
+  background:var(--surface);color:white;
+  padding:10px 18px;border-radius:50px;
+  font-family:var(--mono);font-size:.8rem;font-weight:500;
+  z-index:998;transition:transform .3s ease;
+  white-space:nowrap;border:1px solid rgba(255,255,255,.1);
+}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.success{background:var(--success);border-color:transparent}
+.toast.error{background:var(--danger);border-color:transparent}
+.toast.info{background:var(--primary);border-color:transparent}
+
+/* ── OFFLINE BAR ────────────────────── */
+.offline-bar{
+  display:none;background:#f59e0b;
+  color:#1c1917;font-family:var(--mono);
+  font-size:.72rem;font-weight:500;
+  text-align:center;padding:5px;
+}
+body.is-offline .offline-bar{display:block}
+
+/* ═══════════════════════════════════════
+   LOGIN SCREEN
+═══════════════════════════════════════ */
+#loginScreen{
+  background:var(--bg);
+  align-items:center;justify-content:center;
+  padding:40px 24px;
+  position:relative;overflow:hidden;
+}
+/* Background grid */
+#loginScreen::before{
+  content:'';position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(59,130,246,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(59,130,246,.06) 1px,transparent 1px);
+  background-size:40px 40px;
+  pointer-events:none;
+}
+/* Glow orb */
+#loginScreen::after{
+  content:'';position:absolute;
+  width:300px;height:300px;
+  background:radial-gradient(circle,rgba(59,130,246,.15),transparent 70%);
+  top:50%;left:50%;transform:translate(-50%,-60%);
+  pointer-events:none;
+}
+
+.login-inner{position:relative;z-index:2;width:100%;max-width:300px;display:flex;flex-direction:column;align-items:center}
+
+.login-wordmark{
+  font-family:var(--display);font-size:2rem;font-weight:900;
+  color:white;letter-spacing:-1px;margin-bottom:4px;
+}
+.login-wordmark em{color:var(--primary);font-style:normal}
+.login-sub{
+  font-family:var(--mono);font-size:.7rem;
+  color:rgba(255,255,255,.3);letter-spacing:2px;
+  text-transform:uppercase;margin-bottom:48px;
+}
+
+.pin-label{
+  font-family:var(--mono);font-size:.7rem;
+  color:rgba(255,255,255,.4);letter-spacing:2px;
+  text-transform:uppercase;margin-bottom:14px;
+}
+.pin-dots{display:flex;gap:14px;margin-bottom:36px}
+.pin-dot{
+  width:14px;height:14px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.2);
+  transition:all .2s;
+}
+.pin-dot.filled{background:var(--primary);border-color:var(--primary);box-shadow:0 0 12px rgba(59,130,246,.5)}
+
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;width:100%}
+.k{
+  aspect-ratio:1;border:none;
+  border-radius:16px;
+  background:rgba(255,255,255,.07);
+  color:white;font-family:var(--display);
+  font-size:1.4rem;font-weight:800;
+  cursor:pointer;transition:all .15s;
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid rgba(255,255,255,.06);
+}
+.k:active{background:rgba(59,130,246,.3);transform:scale(.92)}
+.k.del{background:rgba(239,68,68,.12);color:var(--danger);font-size:1.1rem}
+.k.empty{background:transparent;border:transparent;pointer-events:none}
+
+.login-error{
+  font-family:var(--mono);font-size:.78rem;
+  color:var(--danger);text-align:center;
+  margin-top:18px;min-height:18px;
+}
+
+/* ═══════════════════════════════════════
+   JOB SCREEN
+═══════════════════════════════════════ */
+#jobScreen{background:var(--bg)}
+
+/* Header */
+.app-header{
+  background:var(--bg);
+  padding:14px 18px 10px;
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:50;
+  border-bottom:1px solid rgba(255,255,255,.05);
+}
+.app-wordmark{font-family:var(--display);font-size:1rem;font-weight:900;color:white}
+.app-wordmark em{color:var(--primary);font-style:normal}
+.app-meta{text-align:right}
+.app-op-name{font-family:var(--display);font-weight:800;color:white;font-size:.9rem}
+.app-date{font-family:var(--mono);color:rgba(255,255,255,.3);font-size:.68rem;margin-top:1px}
+
+/* Progress strip */
+.progress-track{height:2px;background:rgba(255,255,255,.06)}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--success));transition:width .6s ease}
+
+/* Stats bar */
+.stats-bar{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  background:var(--surface);
+  border-bottom:1px solid rgba(255,255,255,.05);
+}
+.stat-cell{
+  padding:12px 8px;text-align:center;
+  border-right:1px solid rgba(255,255,255,.05);
+}
+.stat-cell:last-child{border-right:none}
+.stat-val{
+  font-family:var(--display);font-size:1.4rem;font-weight:900;
+  color:white;line-height:1;
+}
+.stat-val.c-green{color:var(--success)}
+.stat-val.c-red{color:var(--danger)}
+.stat-val.c-amber{color:var(--warning)}
+.stat-val.c-gold{color:#fbbf24}
+.stat-key{
+  font-family:var(--mono);font-size:.6rem;
+  color:rgba(255,255,255,.3);
+  text-transform:uppercase;letter-spacing:.5px;
+  margin-top:3px;
+}
+
+/* Job list */
+.job-list{
+  flex:1;overflow-y:auto;padding:12px;
+  display:flex;flex-direction:column;gap:10px;
+  -webkit-overflow-scrolling:touch;
+  padding-bottom:80px;
+}
+
+.list-section-label{
+  font-family:var(--mono);font-size:.65rem;
+  color:rgba(255,255,255,.3);
+  text-transform:uppercase;letter-spacing:1px;
+  padding:6px 4px 2px;
+}
+
+/* Job card */
+.job-card{
+  background:var(--card-bg);
+  border-radius:16px;overflow:hidden;
+  box-shadow:0 2px 12px rgba(0,0,0,.25);
+  transition:opacity .4s;
+}
+.job-card.done,.job-card.missed{opacity:.55}
+
+.job-stripe{height:3px;background:var(--border)}
+.job-card.done   .job-stripe{background:var(--success)}
+.job-card.missed .job-stripe{background:var(--danger)}
+.job-card.return .job-stripe{background:var(--warning)}
+
+.job-body{padding:14px 15px 12px}
+.job-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.job-name{font-family:var(--display);font-weight:800;font-size:.95rem;color:var(--text);margin-bottom:2px}
+.job-addr{font-family:var(--mono);font-size:.72rem;color:var(--text-2);line-height:1.45}
+.job-price{
+  font-family:var(--display);font-size:1.05rem;font-weight:900;
+  color:var(--primary-d);margin-left:10px;white-space:nowrap;
+}
+
+.job-note{
+  background:#fef3c7;border-radius:8px;
+  padding:6px 10px;font-family:var(--mono);
+  font-size:.72rem;color:#92400e;
+  margin-bottom:9px;display:flex;gap:6px;align-items:center;
+}
+
+.job-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 8px;border-radius:20px;
+  font-family:var(--mono);font-size:.68rem;font-weight:500;
+  background:#f3f4f6;color:var(--text-2);
+  margin-bottom:10px;
+}
+.job-badge.dd{background:#dbeafe;color:#1e40af}
+
+.job-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}
+.ja{
+  padding:10px 4px;border:none;border-radius:10px;
+  font-family:var(--display);font-weight:800;font-size:.75rem;
+  cursor:pointer;display:flex;align-items:center;
+  justify-content:center;gap:4px;
+  transition:all .18s;
+}
+.ja:active{transform:scale(.94)}
+.ja-done  {background:#dcfce7;color:#15803d}
+.ja-missed{background:#fee2e2;color:#b91c1c}
+.ja-return{background:#fef3c7;color:#b45309}
+.ja-done.on  {background:var(--success);color:white}
+.ja-missed.on{background:var(--danger);color:white}
+.ja-return.on{background:var(--warning);color:white}
+
+.job-done-label,.job-missed-label,.job-return-label{
+  display:none;text-align:center;
+  font-family:var(--mono);font-size:.78rem;font-weight:500;
+  padding:7px 0 2px;
+}
+.job-card.done   .job-done-label{display:block;color:var(--success)}
+.job-card.missed .job-missed-label{display:block;color:var(--danger)}
+.job-card.return .job-return-label{display:block;color:var(--warning)}
+
+/* Empty state */
+.empty-jobs{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:60px 20px;text-align:center;
+}
+.empty-jobs .emoji{font-size:3.5rem;margin-bottom:14px}
+.empty-jobs h3{font-family:var(--display);font-weight:800;color:rgba(255,255,255,.5);font-size:1.1rem;margin-bottom:6px}
+.empty-jobs p{font-family:var(--mono);color:rgba(255,255,255,.25);font-size:.8rem}
+
+/* Footer */
+.app-footer{
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+  width:100%;max-width:480px;
+  background:var(--surface);
+  padding:10px 16px 24px;
+  border-top:1px solid rgba(255,255,255,.06);
+  display:grid;grid-template-columns:1fr auto;gap:10px;
+  z-index:50;
+}
+.footer-sync{
+  background:var(--primary);color:white;border:none;
+  border-radius:12px;padding:12px;
+  font-family:var(--display);font-weight:800;font-size:.85rem;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;
+}
+.footer-logout{
+  background:rgba(255,255,255,.07);color:rgba(255,255,255,.5);border:none;
+  border-radius:12px;padding:12px 16px;
+  font-family:var(--display);font-weight:700;font-size:.8rem;
+  cursor:pointer;
+}
+.sync-badge{
+  background:var(--warning);color:#1c1917;
+  font-family:var(--mono);font-size:.65rem;font-weight:700;
+  padding:1px 6px;border-radius:20px;
+}
+
+/* ═══════════════════════════════════════
+   PAYMENT MODAL
+═══════════════════════════════════════ */
+.modal-backdrop{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.65);backdrop-filter:blur(4px);
+  z-index:200;align-items:flex-end;
+}
+.modal-backdrop.open{display:flex}
+.modal{
+  background:white;border-radius:24px 24px 0 0;
+  padding:8px 24px 48px;width:100%;max-width:480px;margin:0 auto;
+  animation:slideUp .28s cubic-bezier(.16,1,.3,1);
+}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-drag{width:40px;height:4px;background:#e5e7eb;border-radius:2px;margin:12px auto 22px}
+.modal-title{font-family:var(--display);font-size:1.25rem;font-weight:900;color:var(--text);margin-bottom:3px}
+.modal-sub{font-family:var(--mono);font-size:.8rem;color:var(--text-2);margin-bottom:20px}
+.modal-amount-display{
+  font-family:var(--display);font-size:2.8rem;font-weight:900;
+  color:var(--primary-d);text-align:center;
+  padding:18px;background:#f8fafc;border-radius:16px;
+  border:2px solid #e5e7eb;margin-bottom:18px;
+}
+.modal-methods{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.method-btn{
+  padding:14px;border:2px solid var(--border);border-radius:12px;
+  background:white;font-family:var(--display);font-weight:800;font-size:.88rem;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;
+  color:var(--text);transition:all .18s;
+}
+.method-btn.sel{border-color:var(--primary);background:#eff6ff;color:var(--primary-d)}
+.modal-confirm{
+  width:100%;padding:15px;
+  background:var(--success);color:white;border:none;border-radius:12px;
+  font-family:var(--display);font-weight:900;font-size:1rem;
+  cursor:pointer;margin-bottom:10px;
+}
+.modal-skip{
+  width:100%;padding:10px;background:transparent;
+  border:none;font-family:var(--mono);font-size:.8rem;
+  color:var(--text-2);cursor:pointer;
+}
+</style>
+</head>
+<body>
+
+<div class="offline-bar">⚡ Offline — updates queued, will sync when connected</div>
+<div class="loading-overlay" id="loader"><div class="spinner"></div><div class="loading-text" id="loaderTxt">Loading…</div></div>
+<div class="toast" id="toast"></div>
+
+<!-- PAYMENT MODAL -->
+<div class="modal-backdrop" id="payModal">
+  <div class="modal">
+    <div class="modal-drag"></div>
+    <div class="modal-title">Record Payment</div>
+    <div class="modal-sub" id="payModalSub"></div>
+    <div class="modal-amount-display" id="payModalAmt">£0.00</div>
+    <div class="modal-methods">
+      <button class="method-btn sel" id="mBtnCash" onclick="pickMethod('cash')">💵 Cash</button>
+      <button class="method-btn"     id="mBtnCard" onclick="pickMethod('card')">💳 Card</button>
+    </div>
+    <button class="modal-confirm" onclick="confirmPay()">✓ Confirm Payment</button>
+    <button class="modal-skip"    onclick="skipPay()">No payment taken — skip</button>
+  </div>
+</div>
+
+<!-- ════════════ LOGIN ════════════ -->
+<div class="screen active" id="loginScreen">
+  <div class="login-inner">
+    <div class="login-wordmark">Round<em>Sync</em></div>
+    <div class="login-sub">Field Operative</div>
+    <div class="pin-label">Enter your PIN</div>
+    <div class="pin-dots" id="pinDots">
+      <div class="pin-dot" id="d0"></div>
+      <div class="pin-dot" id="d1"></div>
+      <div class="pin-dot" id="d2"></div>
+      <div class="pin-dot" id="d3"></div>
+    </div>
+    <div class="keypad">
+      <button class="k" onclick="kp('1')">1</button>
+      <button class="k" onclick="kp('2')">2</button>
+      <button class="k" onclick="kp('3')">3</button>
+      <button class="k" onclick="kp('4')">4</button>
+      <button class="k" onclick="kp('5')">5</button>
+      <button class="k" onclick="kp('6')">6</button>
+      <button class="k" onclick="kp('7')">7</button>
+      <button class="k" onclick="kp('8')">8</button>
+      <button class="k" onclick="kp('9')">9</button>
+      <button class="k empty"></button>
+      <button class="k" onclick="kp('0')">0</button>
+      <button class="k del" onclick="kdel()">⌫</button>
+    </div>
+    <div class="login-error" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- ════════════ JOB LIST ════════════ -->
+<div class="screen" id="jobScreen">
+  <div class="app-header">
+    <div class="app-wordmark">Round<em>Sync</em></div>
+    <div class="app-meta">
+      <div class="app-op-name" id="hdrName">—</div>
+      <div class="app-date"    id="hdrDate">—</div>
+    </div>
+  </div>
+
+  <div class="progress-track"><div class="progress-fill" id="progFill" style="width:0%"></div></div>
+
+  <div class="stats-bar">
+    <div class="stat-cell"><div class="stat-val c-green" id="sDone">0</div><div class="stat-key">Done</div></div>
+    <div class="stat-cell"><div class="stat-val"         id="sLeft">0</div><div class="stat-key">Left</div></div>
+    <div class="stat-cell"><div class="stat-val c-red"   id="sMiss">0</div><div class="stat-key">Missed</div></div>
+    <div class="stat-cell"><div class="stat-val c-gold"  id="sMoney">£0</div><div class="stat-key">Cash In</div></div>
+  </div>
+
+  <div class="job-list" id="jobList"></div>
+
+  <div class="app-footer">
+    <button class="footer-sync" onclick="doSync()">
+      ↑ Sync
+      <span class="sync-badge" id="syncBadge" style="display:none">0</span>
+    </button>
+    <button class="footer-logout" onclick="doLogout()">⏻</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// ⚙️  CONFIG — fill in your Supabase details
+// ═══════════════════════════════════════════
+const SB_URL  = 'https://bqyvofnljjnffarkwzio.supabase.co';
+const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxeXZvZm5sampuZmZhcmt3emlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjI1MjMsImV4cCI6MjA5MDc5ODUyM30.MsOpuhzSLIU79Xu4Dn9rBC7yqyYDm0vH3LkLmqqMWWU';
+
+// ─── DEMO MODE ───────────────────────────
+const DEMO = false;
+// ─────────────────────────────────────────
+
+// Demo data
+const DEMO_OP   = { id:'demo-pete', name:'Pete', company_id:'demo-co' };
+const DEMO_JOBS = [
+  { id:'j1', status:'pending', customer:{ name:'Mrs Johnson',    address:'14 Acacia Ave, Birkenhead CH41 2QN', notes:'', price:4.00, payment_method:'cash' }},
+  { id:'j2', status:'pending', customer:{ name:'Mr & Mrs Taylor',address:'7 Elm Road, Prenton CH43 3BJ',      notes:'Side gate — blue bin only', price:4.00, payment_method:'cash' }},
+  { id:'j3', status:'pending', customer:{ name:'Davies',         address:'23 Oak Street, Upton CH49 4LX',     notes:'', price:4.50, payment_method:'direct_debit' }},
+  { id:'j4', status:'pending', customer:{ name:'Patel',          address:'55 Maple Close, Bromborough CH62',  notes:'Leave card through door if out', price:4.00, payment_method:'cash' }},
+  { id:'j5', status:'pending', customer:{ name:'Smith',          address:'8 Cedar Lane, Heswall CH60 5AB',    notes:'', price:8.00, payment_method:'cash' }},
+  { id:'j6', status:'pending', customer:{ name:'Williams',       address:'31 Pine Ave, West Kirby CH48 2JT',  notes:'', price:4.00, payment_method:'direct_debit' }},
+  { id:'j7', status:'pending', customer:{ name:'Brown',          address:'12 Birch Rd, Bebington CH63 7YT',   notes:'Key lockbox code 4421', price:4.00, payment_method:'cash' }},
+  { id:'j8', status:'pending', customer:{ name:'Wilson',         address:'67 Willow Way, Wallasey CH44 9RR',  notes:'', price:4.50, payment_method:'cash' }},
+];
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let sb = null;
+let operative = null;
+let jobs = [];
+let pin = '';
+let payJob = null;
+let payMethod = 'cash';
+let queue = JSON.parse(localStorage.getItem('rs_queue') || '[]');
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  if (!DEMO) sb = supabase.createClient(SB_URL, SB_KEY);
+
+  // Date header
+  document.getElementById('hdrDate').textContent =
+    new Date().toLocaleDateString('en-GB',{ weekday:'short', day:'numeric', month:'short' });
+
+  // Offline detection
+  window.addEventListener('online',  () => { document.body.classList.remove('is-offline'); flushQueue(); });
+  window.addEventListener('offline', () =>   document.body.classList.add('is-offline'));
+  if (!navigator.onLine) document.body.classList.add('is-offline');
+
+  // Check saved session
+  const saved = localStorage.getItem('rs_op');
+  if (saved) { operative = JSON.parse(saved); enterJobScreen(); }
+
+  updateSyncBadge();
+});
+
+// ═══════════════════════════════════════════
+// PIN KEYPAD
+// ═══════════════════════════════════════════
+function kp(d) {
+  if (pin.length >= 4) return;
+  pin += d;
+  renderDots();
+  if (pin.length === 4) setTimeout(tryLogin, 150);
+}
+function kdel() {
+  pin = pin.slice(0, -1);
+  renderDots();
+  document.getElementById('loginErr').textContent = '';
+}
+function renderDots() {
+  for (let i = 0; i < 4; i++)
+    document.getElementById('d'+i).classList.toggle('filled', i < pin.length);
+}
+
+async function tryLogin() {
+  load('Checking PIN…');
+  if (DEMO) {
+    await wait(500);
+    operative = DEMO_OP;
+    localStorage.setItem('rs_op', JSON.stringify(operative));
+    hide();
+    enterJobScreen();
+    return;
+  }
+  try {
+    const { data, error } = await sb
+      .from('operatives').select('*')
+      .eq('pin', pin).eq('active', true).single();
+    if (error || !data) {
+      hide();
+      document.getElementById('loginErr').textContent = '✗ Incorrect PIN — try again';
+      pin = ''; renderDots(); return;
+    }
+    operative = data;
+    localStorage.setItem('rs_op', JSON.stringify(data));
+    hide(); enterJobScreen();
+  } catch {
+    hide();
+    document.getElementById('loginErr').textContent = '✗ Connection error';
+    pin = ''; renderDots();
+  }
+}
+
+// ═══════════════════════════════════════════
+// JOB SCREEN
+// ═══════════════════════════════════════════
+async function enterJobScreen() {
+  document.getElementById('loginScreen').classList.remove('active');
+  document.getElementById('jobScreen').classList.add('active');
+  document.getElementById('hdrName').textContent = operative.name;
+  await fetchJobs();
+}
+
+async function fetchJobs() {
+  load("Loading today's jobs…");
+  if (DEMO) {
+    await wait(700);
+    jobs = DEMO_JOBS.map(j => ({ ...j, customer: { ...j.customer } }));
+    hide(); renderJobs(); return;
+  }
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const { data, error } = await sb
+      .from('jobs_live')
+      .select('*, customer:customers(name,address,postcode,phone,notes,price,payment_method)')
+      .eq('operative_id', operative.id)
+      .eq('scheduled_date', today)
+      .order('created_at');
+    if (error) throw error;
+    jobs = data || [];
+    // Apply queued local changes
+    queue.forEach(q => {
+      const j = jobs.find(x => x.id === q.job_id);
+      if (j) {
+        j.status = q.status;
+        if (q.payment_amount) { j.payment_amount = q.payment_amount; j.payment_status = 'paid'; }
+      }
+    });
+    hide(); renderJobs();
+  } catch { hide(); toast('Failed to load jobs', 'error'); }
+}
+
+function renderJobs() {
+  const list = document.getElementById('jobList');
+  list.innerHTML = '';
+
+  const pending   = jobs.filter(j => j.status === 'pending' || j.status === 'return');
+  const completed = jobs.filter(j => j.status === 'done' || j.status === 'missed');
+
+  if (jobs.length === 0) {
+    list.innerHTML = `<div class="empty-jobs">
+      <div class="emoji">🎉</div>
+      <h3>All done for today!</h3>
+      <p>No jobs scheduled.</p>
+    </div>`;
+  } else {
+    if (pending.length) {
+      addLabel(list, `To Do — ${pending.length} remaining`);
+      pending.forEach(j => list.appendChild(makeCard(j)));
+    }
+    if (completed.length) {
+      addLabel(list, `Completed — ${completed.length}`);
+      completed.forEach(j => list.appendChild(makeCard(j)));
+    }
+  }
+  updateStats();
+}
+
+function addLabel(parent, text) {
+  const d = document.createElement('div');
+  d.className = 'list-section-label';
+  d.textContent = text;
+  parent.appendChild(d);
+}
+
+function makeCard(job) {
+  const c  = job.customer || {};
+  const dd = c.payment_method === 'direct_debit';
+  const pr = parseFloat(c.price || job.price || 0);
+
+  const el = document.createElement('div');
+  el.className = `job-card ${job.status}`;
+  el.id = `card-${job.id}`;
+  el.innerHTML = `
+    <div class="job-stripe"></div>
+    <div class="job-body">
+      <div class="job-top">
+        <div>
+          <div class="job-name">${c.name || 'Customer'}</div>
+          <div class="job-addr">${c.address || ''}</div>
+        </div>
+        <div class="job-price">£${pr.toFixed(2)}</div>
+      </div>
+      ${c.notes ? `<div class="job-note">📝 ${c.notes}</div>` : ''}
+      <div class="job-badge ${dd?'dd':''}">${dd ? '🔄 Direct Debit' : '💷 Cash / Card'}</div>
+      <div class="job-actions">
+        <button class="ja ja-done   ${job.status==='done'  ?'on':''}" onclick="setStatus('${job.id}','done')">  ✓ Done</button>
+        <button class="ja ja-missed ${job.status==='missed'?'on':''}" onclick="setStatus('${job.id}','missed')">✗ Missed</button>
+        <button class="ja ja-return ${job.status==='return'?'on':''}" onclick="setStatus('${job.id}','return')">↩ Return</button>
+      </div>
+      <div class="job-done-label">✓ Completed</div>
+      <div class="job-missed-label">✗ Missed — flagged</div>
+      <div class="job-return-label">↩ Return visit needed</div>
+    </div>`;
+  return el;
+}
+
+// ═══════════════════════════════════════════
+// STATUS UPDATES
+// ═══════════════════════════════════════════
+async function setStatus(id, status) {
+  const job = jobs.find(j => j.id === id);
+  if (!job) return;
+  const c  = job.customer || {};
+  const dd = c.payment_method === 'direct_debit';
+
+  if (status === 'done' && !dd) {
+    payJob = job; openPayModal(job); return;
+  }
+  await apply(job, status, null, null);
+}
+
+async function apply(job, status, amt, method) {
+  job.status = status;
+  if (amt)   { job.payment_amount = amt; job.payment_method = method; job.payment_status = 'paid'; }
+
+  renderJobs();
+
+  const change = { job_id:job.id, status, payment_amount:amt, payment_method:method, ts:new Date().toISOString() };
+
+  if (navigator.onLine && !DEMO) {
+    await push(change);
+  } else {
+    queue.push(change);
+    localStorage.setItem('rs_queue', JSON.stringify(queue));
+    updateSyncBadge();
+  }
+
+  if (status === 'done')   toast(`✓ ${(job.customer||{}).name} — done`, 'success');
+  if (status === 'missed') toast(`${(job.customer||{}).name} — missed`, 'error');
+  if (status === 'return') toast(`↩ ${(job.customer||{}).name} — return flagged`, 'info');
+}
+
+async function push(change) {
+  try {
+    const upd = { status:change.status, completed_at:change.ts };
+    if (change.payment_amount) {
+      upd.payment_amount = change.payment_amount;
+      upd.payment_method = change.payment_method;
+      upd.payment_status = 'paid';
+    }
+    await sb.from('jobs_live').update(upd).eq('id', change.job_id);
+    if (change.payment_amount) {
+      await sb.from('payments').insert({
+        company_id:  operative.company_id,
+        job_id:      change.job_id,
+        operative_id:operative.id,
+        amount:      change.payment_amount,
+        method:      change.payment_method,
+      });
+    }
+  } catch {
+    queue.push(change);
+    localStorage.setItem('rs_queue', JSON.stringify(queue));
+    updateSyncBadge();
+  }
+}
+
+async function flushQueue() {
+  if (DEMO || queue.length === 0) return;
+  toast(`Syncing ${queue.length} update${queue.length>1?'s':''}…`, 'info');
+  const toSync = [...queue];
+  queue = []; localStorage.setItem('rs_queue', '[]');
+  updateSyncBadge();
+  for (const c of toSync) await push(c);
+  toast('All synced ✓', 'success');
+}
+
+async function doSync() {
+  await flushQueue();
+  if (DEMO) { toast('Demo — no sync needed', 'info'); return; }
+  await fetchJobs();
+}
+
+function updateSyncBadge() {
+  const b = document.getElementById('syncBadge');
+  b.style.display = queue.length > 0 ? 'inline' : 'none';
+  b.textContent = queue.length;
+}
+
+// ═══════════════════════════════════════════
+// PAYMENT MODAL
+// ═══════════════════════════════════════════
+function openPayModal(job) {
+  const c = job.customer || {};
+  document.getElementById('payModalSub').textContent  = c.name || 'Customer';
+  document.getElementById('payModalAmt').textContent  = `£${parseFloat(c.price||0).toFixed(2)}`;
+  payMethod = 'cash';
+  document.getElementById('mBtnCash').classList.add('sel');
+  document.getElementById('mBtnCard').classList.remove('sel');
+  document.getElementById('payModal').classList.add('open');
+}
+function pickMethod(m) {
+  payMethod = m;
+  document.getElementById('mBtnCash').classList.toggle('sel', m==='cash');
+  document.getElementById('mBtnCard').classList.toggle('sel', m==='card');
+}
+async function confirmPay() {
+  if (!payJob) return;
+  const c = payJob.customer || {};
+  document.getElementById('payModal').classList.remove('open');
+  await apply(payJob, 'done', parseFloat(c.price||0), payMethod);
+  payJob = null;
+}
+async function skipPay() {
+  document.getElementById('payModal').classList.remove('open');
+  if (payJob) { await apply(payJob, 'done', null, null); payJob = null; }
+}
+
+// ═══════════════════════════════════════════
+// STATS
+// ═══════════════════════════════════════════
+function updateStats() {
+  const done  = jobs.filter(j=>j.status==='done').length;
+  const miss  = jobs.filter(j=>j.status==='missed').length;
+  const left  = jobs.filter(j=>j.status==='pending'||j.status==='return').length;
+  const money = jobs.reduce((s,j)=>s+parseFloat(j.payment_amount||0),0);
+  const total = jobs.length;
+
+  document.getElementById('sDone').textContent  = done;
+  document.getElementById('sMiss').textContent  = miss;
+  document.getElementById('sLeft').textContent  = left;
+  document.getElementById('sMoney').textContent = `£${money.toFixed(0)}`;
+  document.getElementById('progFill').style.width =
+    total > 0 ? Math.round(((done+miss)/total)*100)+'%' : '0%';
+}
+
+// ═══════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════
+function doLogout() {
+  if (queue.length && !DEMO && !confirm(`${queue.length} unsynced update(s). Logout anyway?`)) return;
+  localStorage.removeItem('rs_op');
+  operative=null; jobs=[]; pin=''; renderDots();
+  document.getElementById('jobScreen').classList.remove('active');
+  document.getElementById('loginScreen').classList.add('active');
+  document.getElementById('loginErr').textContent = '';
+}
+function load(txt='Loading…') { document.getElementById('loaderTxt').textContent=txt; document.getElementById('loader').classList.add('show'); }
+function hide() { document.getElementById('loader').classList.remove('show'); }
+let _tt;
+function toast(msg, type='') {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className=`toast show ${type}`;
+  clearTimeout(_tt); _tt=setTimeout(()=>t.classList.remove('show'),2800);
+}
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+</script>
+</body>
+</html>
