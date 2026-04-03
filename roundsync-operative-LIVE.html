@@ -229,7 +229,8 @@ body.offline .offline-bar{display:block}
 .tag-paypal{background:rgba(0,156,222,.12);color:#009CDE}
 .tag-cash  {background:rgba(0,230,118,.1);color:var(--green)}
 .tag-wb    {background:rgba(255,255,255,.06);color:var(--muted)}
-.tag-eco   {background:rgba(0,200,100,.08);color:#00C864}
+.tag-bins{background:rgba(255,179,0,.2);color:var(--amber);font-weight:800;border:1px solid rgba(255,179,0,.3)}
+.tag-eco{background:rgba(0,200,100,.08);color:#00C864}
 
 .job-note-txt{
   font-family:var(--mono);font-size:.65rem;color:var(--amber);
@@ -289,14 +290,14 @@ body.offline .offline-bar{display:block}
   color:var(--muted);border-radius:11px;padding:12px 14px;
   font-size:.8rem;cursor:pointer;transition:all .2s}
 
-.job-house{display:flex;flex-direction:column;align-items:center;min-width:42px;flex-shrink:0;gap:3px}
+.job-house{display:flex;flex-direction:column;align-items:center;min-width:48px;flex-shrink:0;gap:2px}
 .job-price-tag{
-  font-family:var(--mono);font-size:.6rem;font-weight:700;
-  padding:2px 5px;border-radius:5px;
-  background:rgba(0,230,118,.15);color:var(--green);white-space:nowrap;
+  font-family:var(--mono);font-size:.65rem;font-weight:800;
+  padding:3px 6px;border-radius:6px;white-space:nowrap;text-align:center;
+  background:rgba(0,230,118,.18);color:var(--green);
 }
-.job-price-tag.auto{background:rgba(179,136,255,.12);color:var(--purple)}
-.job-price-tag.credit{background:rgba(41,121,255,.12);color:var(--blue)}
+.job-price-tag.auto{background:rgba(179,136,255,.15);color:var(--purple)}
+.job-price-tag.credit{background:rgba(41,121,255,.15);color:var(--blue)}
 .job-detail{
   display:none;background:var(--card2);
   border-top:1px solid var(--line);padding:12px 14px;
@@ -571,7 +572,7 @@ function parseTags(job,bins){
   const tags=[];
 
   // Bin count from address: X2, X3 etc
-  if(bins) tags.push({cls:'tag-wb',txt:bins+' BINS'});
+  if(bins) tags.push({cls:'tag-bins',txt:bins+' BINS'});
 
   // Bin colour — check notes AND address
   const colourSrc = notes + ' ' + addr;
@@ -702,14 +703,20 @@ function makeJobRow(job){
   const retCls=job.status==='return'?'on':'';
   const notesUp=String(job.notes||'').toUpperCase();
   const dd=String(job.payment_method||'').toLowerCase()==='direct_debit'||notesUp.includes('DIRECT DEBIT');
-  const pp=notesUp.includes('PAYPAL');
+  const pp=notesUp.includes('PAYPAL')||notesUp.includes('PAYPAL AUTO');
   const credit=notesUp.match(/\bX\d+\b|\bADV\b|\bCREDIT\b/);
-  const priceDisplay=credit?'CREDIT':dd?'DD':pp?'PayPal':pr>0?`£${pr.toFixed(2)}`:'';
+  // Try to extract price from notes if not set (e.g. "£4.50" in notes)
+  let displayPrice=pr;
+  if(!displayPrice){
+    const m=notesUp.match(/£(\d+\.?\d*)/);
+    if(m) displayPrice=parseFloat(m[1]);
+  }
+  const priceDisplay=credit?'CREDIT':dd?'DD':pp?'PayPal':displayPrice>0?`£${displayPrice.toFixed(2)}`:'?';
 
   return `<div class="job-row ${rowCls}" id="row-${job.id}">
     <div class="job-house">
       <div class="job-num">${house||'?'}</div>
-      ${priceDisplay?`<div class="job-price-tag ${dd||pp?'auto':credit?'credit':''}">${priceDisplay}</div>`:''}
+      <div class="job-price-tag ${dd||pp?'auto':credit?'credit':''}">${priceDisplay}</div>
     </div>
     <div class="job-info">
       <div class="job-tags">
