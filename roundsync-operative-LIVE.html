@@ -775,11 +775,11 @@ function card(job){
         <div class="job-top">
           <div>
             <div class="job-name">Job #${String(jobs.indexOf(job)+1).padStart(3,'0')}</div>
-            <div class="job-addr">${c.address||''}</div>
+            <div class="job-addr">${c.address||''}${c.postcode?' · '+c.postcode:''}</div>
           </div>
           <div class="job-price">£${pr.toFixed(2)}</div>
         </div>
-        ${c.notes?`<div class="job-note">📝 ${c.notes}</div>`:''}
+        ${c.notes?`<div class="job-note">📋 ${c.notes}</div>`:''}
         <div class="job-badge ${dd?'dd':''}">${dd?'🔄 Direct Debit':'💷 Cash / Card'}</div>
         <div class="job-acts">
           <button class="jbtn jbtn-done  ${job.status==='done'  ?'on':''}" onclick="setStatus('${job.id}','done')">  ✓ Done</button>
