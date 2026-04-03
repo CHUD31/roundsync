@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RoundSync — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0D0D0D;--surf:#161616;--card:#1C1C1C;--card2:#242424;
+  --line:rgba(255,255,255,.08);--white:#F2F2EE;
+  --muted:rgba(242,242,238,.4);--green:#00E676;
+  --red:#FF3D57;--amber:#FFB300;--blue:#2979FF;
+  --mono:'JetBrains Mono',monospace;--body:'Outfit',sans-serif;
+}
+body{font-family:var(--body);background:var(--bg);color:var(--white);
+  min-height:100vh;-webkit-font-smoothing:antialiased}
+.container{max-width:1100px;margin:0 auto;padding:24px 20px}
+
+/* Header */
+.hdr{display:flex;align-items:center;justify-content:space-between;
+  padding:14px 20px;background:rgba(13,13,13,.95);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-mark{width:30px;height:30px;background:var(--green);border-radius:8px;
+  display:flex;align-items:center;justify-content:center}
+.logo-mark svg{width:16px;height:16px}
+.logo-name{font-size:1.1rem;font-weight:800}
+.logo-badge{font-family:var(--mono);font-size:.62rem;color:var(--amber);
+  background:rgba(255,179,0,.1);padding:2px 8px;border-radius:100px;margin-left:6px;
+  border:1px solid rgba(255,179,0,.2)}
+
+/* Tabs */
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--line);margin-bottom:24px}
+.tab{padding:12px 20px;font-family:var(--mono);font-size:.72rem;font-weight:600;
+  color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;
+  letter-spacing:.3px;text-transform:uppercase}
+.tab.on{color:var(--green);border-bottom-color:var(--green)}
+
+/* Panels */
+.panel{display:none}.panel.active{display:block}
+
+/* Cards */
+.card{background:var(--surf);border:1px solid var(--line);border-radius:14px;
+  padding:20px;margin-bottom:16px}
+.card-title{font-size:.9rem;font-weight:700;margin-bottom:14px;
+  display:flex;align-items:center;justify-content:space-between}
+
+/* Form */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-grid.cols3{grid-template-columns:1fr 1fr 1fr}
+.form-full{grid-column:1/-1}
+.fgroup{display:flex;flex-direction:column;gap:5px}
+.flbl{font-family:var(--mono);font-size:.65rem;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.5px}
+.finput,.fselect,.ftarea{
+  background:var(--card);border:1px solid var(--line);border-radius:8px;
+  padding:9px 12px;color:var(--white);font-family:var(--mono);
+  font-size:.78rem;outline:none;transition:border .2s;width:100%;
+}
+.finput:focus,.fselect:focus,.ftarea:focus{border-color:var(--green)}
+.ftarea{resize:vertical;min-height:70px}
+.fselect{cursor:pointer}
+
+/* Buttons */
+.btn{padding:10px 20px;border:none;border-radius:9px;font-family:var(--body);
+  font-weight:700;font-size:.82rem;cursor:pointer;transition:all .2s}
+.btn-green{background:var(--green);color:#000}
+.btn-green:hover{opacity:.85}
+.btn-red{background:rgba(255,61,87,.15);color:var(--red);border:1px solid rgba(255,61,87,.3)}
+.btn-blue{background:rgba(41,121,255,.15);color:var(--blue);border:1px solid rgba(41,121,255,.3)}
+.btn-muted{background:var(--card2);color:var(--muted);border:1px solid var(--line)}
+.btn-sm{padding:6px 12px;font-size:.72rem}
+
+/* Table */
+.tbl-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--line)}
+table{width:100%;border-collapse:collapse;font-size:.78rem}
+th{background:var(--card2);padding:10px 14px;text-align:left;
+  font-family:var(--mono);font-size:.6rem;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--line)}
+td{padding:10px 14px;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+
+/* Badges */
+.badge{display:inline-flex;padding:2px 8px;border-radius:100px;
+  font-family:var(--mono);font-size:.62rem;font-weight:600}
+.badge-green{background:rgba(0,230,118,.12);color:var(--green)}
+.badge-amber{background:rgba(255,179,0,.12);color:var(--amber)}
+.badge-blue{background:rgba(41,121,255,.12);color:var(--blue)}
+.badge-red{background:rgba(255,61,87,.12);color:var(--red)}
+
+/* Alert */
+.alert{border-radius:9px;padding:11px 16px;font-family:var(--mono);font-size:.75rem;
+  margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.alert-s{background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.3);color:var(--green)}
+.alert-e{background:rgba(255,61,87,.1);border:1px solid rgba(255,61,87,.3);color:var(--red)}
+.alert-i{background:rgba(41,121,255,.1);border:1px solid rgba(41,121,255,.3);color:var(--blue)}
+
+/* Loader */
+.loader{display:none;text-align:center;padding:24px;
+  font-family:var(--mono);font-size:.78rem;color:var(--muted)}
+.loader.show{display:block}
+
+@media(max-width:600px){
+  .form-grid{grid-template-columns:1fr}
+  .form-grid.cols3{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="logo">
+    <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>
+    <div class="logo-name">RoundSync</div>
+    <span class="logo-badge">ADMIN</span>
+  </div>
+  <div style="font-family:var(--mono);font-size:.7rem;color:var(--muted)" id="todayLbl"></div>
+</div>
+
+<div class="container">
+  <div id="alertBox" style="display:none"></div>
+
+  <div class="tabs">
+    <div class="tab on" onclick="showTab('jobs',this)">📋 Jobs</div>
+    <div class="tab"    onclick="showTab('customers',this)">👥 Customers</div>
+    <div class="tab"    onclick="showTab('rounds',this)">🔄 Rounds</div>
+    <div class="tab"    onclick="showTab('team',this)">👷 Team</div>
+  </div>
+
+  <!-- ══ JOBS TAB ══ -->
+  <div class="panel active" id="panel-jobs">
+    <div class="card">
+      <div class="card-title">
+        Create / Assign a Job
+      </div>
+      <div class="form-grid cols3">
+        <div class="fgroup">
+          <label class="flbl">Date</label>
+          <input type="date" class="finput" id="jDate">
+        </div>
+        <div class="fgroup">
+          <label class="flbl">Operative</label>
+          <select class="fselect" id="jOp"><option value="">Select…</option></select>
+        </div>
+        <div class="fgroup">
+          <label class="flbl">Round</label>
+          <select class="fselect" id="jRound"><option value="">Select…</option></select>
+        </div>
+        <div class="fgroup form-full">
+          <label class="flbl">Address</label>
+          <input type="text" class="finput" id="jAddr" placeholder="14 Acacia Avenue, Birkenhead">
+        </div>
+        <div class="fgroup">
+          <label class="flbl">Postcode</label>
+          <input type="text" class="finput" id="jPc" placeholder="CH41 2QN">
+        </div>
+        <div class="fgroup">
+          <label class="flbl">Price (£)</label>
+          <input type="number" class="finput" id="jPrice" placeholder="4.00" step="0.50">
+        </div>
+        <div class="fgroup">
+          <label class="flbl">Payment Method</label>
+          <select class="fselect" id="jPay">
+            <option value="cash">Cash</option>
+            <option value="direct_debit">Direct Debit</option>
+            <option value="card">Card</option>
+          </select>
+        </div>
+        <div class="fgroup form-full">
+          <label class="flbl">Notes</label>
+          <textarea class="ftarea" id="jNotes" placeholder="Any notes for the operative…"></textarea>
+        </div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:10px">
+        <button class="btn btn-green" onclick="createJob()">+ Create Job</button>
+        <button class="btn btn-muted" onclick="clearJobForm()">Clear</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        Today's Jobs
+        <div style="display:flex;gap:8px">
+          <select class="fselect" id="filterOp" onchange="loadJobs()" style="width:auto;padding:5px 10px">
+            <option value="">All Operatives</option>
+          </select>
+          <input type="date" class="finput" id="filterDate" onchange="loadJobs()" style="width:auto;padding:5px 10px">
+        </div>
+      </div>
+      <div class="loader show" id="jobsLoader">Loading…</div>
+      <div class="tbl-wrap" id="jobsTbl" style="display:none">
+        <table>
+          <thead><tr>
+            <th>Address</th><th>Postcode</th><th>Operative</th>
+            <th>Status</th><th>Payment</th><th>Notes</th><th></th>
+          </tr></thead>
+          <tbody id="jobsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ CUSTOMERS TAB ══ -->
+  <div class="panel" id="panel-customers">
+    <div class="card">
+      <div class="card-title">Add Customer</div>
+      <div class="form-grid">
+        <div class="fgroup">
+          <label class="flbl">Full Name *</label>
+          <input type="text" class="finput" id="cName" placeholder="Mrs Johnson">
+        </div>
+        <div class="fgroup">
+          <label class="flbl">Round *</label>
+          <select class="fselect" id="cRound"><option value="">Select round…</option></select>
+        </div>
+        <div class="fgroup form-full">
+          <label class="flbl">Address *</label>
+          <input type="text" class="finput" id="cAddr" placeholder="14 Acacia Avenue, Birkenhead">
+        </div>
+        <div class="fgroup">
+          <label class="flbl">Postcode *</label>
+          <input type="text" class="finput" id="cPc" placeholder="CH41 2QN">
+        </div>
+        <div class="fgroup">
+          <label class="flbl">Phone</label>
+          <input type="tel" class="finput" id="cPhone" placeholder="0151 xxx xxxx">
+        </div>
+        <div class="fgroup">
+          <label class="flbl">Email</label>
+          <input type="email" class="finput" id="cEmail">
+        </div>
+        <div class="fgroup">
+          <label class="flbl">Price (£)</label>
+          <input type="number" class="finput" id="cPrice" placeholder="4.00" step="0.50">
+        </div>
+        <div class="fgroup">
+          <label class="flbl">Payment Method</label>
+          <select class="fselect" id="cPay">
+            <option value="cash">Cash</option>
+            <option value="direct_debit">Direct Debit</option>
+            <option value="card">Card</option>
+          </select>
+        </div>
+        <div class="fgroup">
+          <label class="flbl">Frequency</label>
+          <select class="fselect" id="cFreq">
+            <option value="fortnightly">Fortnightly</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
+        <div class="fgroup form-full">
+          <label class="flbl">Notes</label>
+          <textarea class="ftarea" id="cNotes" placeholder="Side gate, bin colour, access info…"></textarea>
+        </div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:10px">
+        <button class="btn btn-green" onclick="addCustomer()">+ Add Customer</button>
+        <button class="btn btn-muted" onclick="clearCustForm()">Clear</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        Customer List
+        <div style="display:flex;gap:8px">
+          <input type="text" class="finput" id="custSearch" placeholder="Search…"
+            oninput="filterCustomers()" style="width:180px;padding:5px 10px">
+          <select class="fselect" id="custRoundFilter" onchange="filterCustomers()" style="width:auto;padding:5px 10px">
+            <option value="">All Rounds</option>
+          </select>
+        </div>
+      </div>
+      <div class="loader show" id="custLoader">Loading…</div>
+      <div class="tbl-wrap" id="custTbl" style="display:none">
+        <table>
+          <thead><tr>
+            <th>Name</th><th>Address</th><th>Postcode</th>
+            <th>Round</th><th>Price</th><th>Payment</th><th></th>
+          </tr></thead>
+          <tbody id="custBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROUNDS TAB ══ -->
+  <div class="panel" id="panel-rounds">
+    <div class="card">
+      <div class="card-title">Add / Edit Round</div>
+      <div class="form-grid">
+        <div class="fgroup">
+          <label class="flbl">Round Name *</label>
+          <input type="text" class="finput" id="rName" placeholder="Pete — WB Round">
+        </div>
+        <div class="fgroup">
+          <label class="flbl">Operative *</label>
+          <select class="fselect" id="rOp"><option value="">Select…</option></select>
+        </div>
+        <div class="fgroup">
+          <label class="flbl">Frequency</label>
+          <select class="fselect" id="rFreq">
+            <option value="fortnightly">Fortnightly</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
+        <div class="fgroup">
+          <label class="flbl">Day of Week</label>
+          <select class="fselect" id="rDay">
+            <option value="1">Monday</option>
+            <option value="2">Tuesday</option>
+            <option value="3">Wednesday</option>
+            <option value="4">Thursday</option>
+            <option value="5">Friday</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:14px">
+        <button class="btn btn-green" onclick="saveRound()">+ Add Round</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Rounds</div>
+      <div class="loader show" id="roundsLoader">Loading…</div>
+      <div class="tbl-wrap" id="roundsTbl" style="display:none">
+        <table>
+          <thead><tr><th>Round Name</th><th>Operative</th><th>Frequency</th><th>Day</th><th>Customers</th><th></th></tr></thead>
+          <tbody id="roundsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TEAM TAB ══ -->
+  <div class="panel" id="panel-team">
+    <div class="card">
+      <div class="card-title">Add Operative</div>
+      <div class="form-grid">
+        <div class="fgroup">
+          <label class="flbl">Name *</label>
+          <input type="text" class="finput" id="opName" placeholder="Pete">
+        </div>
+        <div class="fgroup">
+          <label class="flbl">PIN (4 digits) *</label>
+          <input type="text" class="finput" id="opPin" placeholder="1234" maxlength="4">
+        </div>
+        <div class="fgroup">
+          <label class="flbl">Role</label>
+          <select class="fselect" id="opRole">
+            <option value="operative">Operative</option>
+            <option value="owner">Owner</option>
+          </select>
+        </div>
+        <div class="fgroup">
+          <label class="flbl">Colour</label>
+          <input type="color" class="finput" id="opColour" value="#3b82f6" style="height:40px;padding:4px">
+        </div>
+      </div>
+      <div style="margin-top:14px">
+        <button class="btn btn-green" onclick="addOperative()">+ Add Operative</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Team</div>
+      <div class="loader show" id="teamLoader">Loading…</div>
+      <div class="tbl-wrap" id="teamTbl" style="display:none">
+        <table>
+          <thead><tr><th>Name</th><th>PIN</th><th>Role</th><th>Colour</th><th></th></tr></thead>
+          <tbody id="teamBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SB_URL = 'https://bqyvofnljjnffarkwzio.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxeXZvZm5sampuZmZhcmt3emlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjI1MjMsImV4cCI6MjA5MDc5ODUyM30.MsOpuhzSLIU79Xu4Dn9rBC7yqyYDm0vH3LkLmqqMWWU';
+const COMPANY = '7b200f06-25d6-46d9-af9c-fa179ac44fed';
+const sb = supabase.createClient(SB_URL, SB_KEY);
+
+let operatives=[], rounds=[], customers=[], jobs=[];
+const DAYS=['','Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+// ── Init ─────────────────────────────
+document.addEventListener('DOMContentLoaded', async ()=>{
+  document.getElementById('todayLbl').textContent =
+    new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('jDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('filterDate').value = new Date().toISOString().split('T')[0];
+
+  await Promise.all([loadOperatives(), loadRounds()]);
+  await Promise.all([loadJobs(), loadCustomers()]);
+  loadTeam();
+});
+
+// ── Tabs ─────────────────────────────
+function showTab(name, el){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.getElementById('panel-'+name).classList.add('active');
+  el.classList.add('on');
+}
+
+// ── Alert ─────────────────────────────
+function showAlert(msg, type='i'){
+  const box=document.getElementById('alertBox');
+  box.style.display='block';
+  box.innerHTML=`<div class="alert alert-${type}">${msg}</div>`;
+  setTimeout(()=>{ box.style.display='none'; }, 4000);
+}
+
+// ── OPERATIVES ────────────────────────
+async function loadOperatives(){
+  const {data}=await sb.from('operatives').select('*').eq('company_id',COMPANY).eq('active',true);
+  operatives=data||[];
+  ['jOp','rOp','filterOp'].forEach(id=>{
+    const sel=document.getElementById(id);
+    if(!sel) return;
+    const cur=sel.value;
+    sel.innerHTML='<option value="">'+( id==='filterOp'?'All Operatives':'Select…')+'</option>';
+    operatives.forEach(op=>{
+      sel.innerHTML+=`<option value="${op.id}" ${op.id===cur?'selected':''}>${op.name}</option>`;
+    });
+  });
+}
+
+async function loadTeam(){
+  document.getElementById('teamLoader').classList.add('show');
+  const {data}=await sb.from('operatives').select('*').eq('company_id',COMPANY);
+  document.getElementById('teamLoader').classList.remove('show');
+  document.getElementById('teamTbl').style.display='block';
+  document.getElementById('teamBody').innerHTML=(data||[]).map(op=>`<tr>
+    <td style="font-weight:700">${op.name}</td>
+    <td><span style="font-family:var(--mono)">${op.pin}</span></td>
+    <td><span class="badge ${op.role==='owner'?'badge-amber':'badge-blue'}">${op.role}</span></td>
+    <td><span style="display:inline-block;width:16px;height:16px;border-radius:4px;background:${op.colour||'#666'}"></span></td>
+    <td><button class="btn btn-red btn-sm" onclick="deactivateOp('${op.id}')">Remove</button></td>
+  </tr>`).join('');
+}
+
+async function addOperative(){
+  const name=document.getElementById('opName').value.trim();
+  const pin=document.getElementById('opPin').value.trim();
+  const role=document.getElementById('opRole').value;
+  const colour=document.getElementById('opColour').value;
+  if(!name||!pin||pin.length!==4){ showAlert('Name and 4-digit PIN required','e'); return; }
+  const {error}=await sb.from('operatives').insert({company_id:COMPANY,name,pin,role,colour,active:true});
+  if(error){ showAlert('Error: '+error.message,'e'); return; }
+  showAlert(name+' added to team','s');
+  document.getElementById('opName').value='';
+  document.getElementById('opPin').value='';
+  await loadOperatives(); loadTeam();
+}
+
+async function deactivateOp(id){
+  if(!confirm('Remove this operative?')) return;
+  await sb.from('operatives').update({active:false}).eq('id',id);
+  loadTeam();
+}
+
+// ── ROUNDS ────────────────────────────
+async function loadRounds(){
+  const {data}=await sb.from('rounds')
+    .select('*, operative:operatives(name,colour)')
+    .eq('company_id',COMPANY).eq('active',true);
+  rounds=data||[];
+
+  ['jRound','cRound','custRoundFilter'].forEach(id=>{
+    const sel=document.getElementById(id);
+    if(!sel) return;
+    sel.innerHTML='<option value="">'+( id==='custRoundFilter'?'All Rounds':'Select round…')+'</option>';
+    rounds.forEach(r=>{ sel.innerHTML+=`<option value="${r.id}">${r.name}</option>`; });
+  });
+
+  document.getElementById('roundsLoader').classList.remove('show');
+  document.getElementById('roundsTbl').style.display='block';
+  document.getElementById('roundsBody').innerHTML=rounds.map(r=>`<tr>
+    <td style="font-weight:700">${r.name}</td>
+    <td><span style="display:inline-flex;align-items:center;gap:6px">
+      <span style="width:10px;height:10px;border-radius:50%;background:${r.operative?.colour||'#666'};flex-shrink:0"></span>
+      ${r.operative?.name||'—'}
+    </span></td>
+    <td>${r.frequency||'—'}</td>
+    <td>${DAYS[r.day_of_week]||'—'}</td>
+    <td id="rc-${r.id}">—</td>
+    <td><button class="btn btn-red btn-sm" onclick="deleteRound('${r.id}')">Delete</button></td>
+  </tr>`).join('');
+
+  // Load customer counts per round
+  rounds.forEach(async r=>{
+    const {count}=await sb.from('customers').select('*',{count:'exact',head:true})
+      .eq('round_id',r.id).eq('active',true);
+    const el=document.getElementById('rc-'+r.id);
+    if(el) el.textContent=count||0;
+  });
+}
+
+async function saveRound(){
+  const name=document.getElementById('rName').value.trim();
+  const opId=document.getElementById('rOp').value;
+  const freq=document.getElementById('rFreq').value;
+  const day=parseInt(document.getElementById('rDay').value);
+  if(!name||!opId){ showAlert('Round name and operative required','e'); return; }
+  const {error}=await sb.from('rounds').insert({
+    company_id:COMPANY, name, operative_id:opId, frequency:freq, day_of_week:day, active:true
+  });
+  if(error){ showAlert('Error: '+error.message,'e'); return; }
+  showAlert('Round "'+name+'" created','s');
+  document.getElementById('rName').value='';
+  await loadRounds();
+}
+
+async function deleteRound(id){
+  if(!confirm('Delete this round? Customers will be unassigned.')) return;
+  await sb.from('rounds').update({active:false}).eq('id',id);
+  showAlert('Round removed','s');
+  loadRounds();
+}
+
+// ── CUSTOMERS ─────────────────────────
+async function loadCustomers(){
+  document.getElementById('custLoader').classList.add('show');
+  const {data}=await sb.from('customers')
+    .select('*, round:rounds(name)')
+    .eq('company_id',COMPANY).eq('active',true)
+    .order('address');
+  customers=data||[];
+  document.getElementById('custLoader').classList.remove('show');
+  document.getElementById('custTbl').style.display='block';
+  renderCustomers(customers);
+}
+
+function renderCustomers(list){
+  document.getElementById('custBody').innerHTML=list.map(c=>`<tr>
+    <td style="font-weight:700">${c.name}</td>
+    <td style="font-family:var(--mono);font-size:.72rem">${c.address||'—'}</td>
+    <td style="font-family:var(--mono)">${c.postcode||'—'}</td>
+    <td>${c.round?.name||'—'}</td>
+    <td style="color:var(--green);font-family:var(--mono)">£${parseFloat(c.price||0).toFixed(2)}</td>
+    <td><span class="badge ${c.payment_method==='direct_debit'?'badge-blue':'badge-green'}">${c.payment_method==='direct_debit'?'DD':'Cash'}</span></td>
+    <td style="display:flex;gap:6px">
+      <button class="btn btn-blue btn-sm" onclick="sendJobNow('${c.id}')">+ Job Today</button>
+      <button class="btn btn-red btn-sm" onclick="removeCust('${c.id}')">✕</button>
+    </td>
+  </tr>`).join('');
+}
+
+function filterCustomers(){
+  const q=document.getElementById('custSearch').value.toLowerCase();
+  const rFilter=document.getElementById('custRoundFilter').value;
+  const filtered=customers.filter(c=>{
+    const matchQ=!q||c.name?.toLowerCase().includes(q)||c.address?.toLowerCase().includes(q)||c.postcode?.toLowerCase().includes(q);
+    const matchR=!rFilter||c.round_id===rFilter;
+    return matchQ&&matchR;
+  });
+  renderCustomers(filtered);
+}
+
+async function addCustomer(){
+  const name=document.getElementById('cName').value.trim();
+  const addr=document.getElementById('cAddr').value.trim();
+  const pc=document.getElementById('cPc').value.trim().toUpperCase();
+  const roundId=document.getElementById('cRound').value;
+  if(!name||!addr||!pc||!roundId){ showAlert('Name, address, postcode and round required','e'); return; }
+  const {error}=await sb.from('customers').insert({
+    company_id:COMPANY, round_id:roundId,
+    name, address:addr, postcode:pc,
+    phone:document.getElementById('cPhone').value.trim()||null,
+    email:document.getElementById('cEmail').value.trim()||null,
+    price:parseFloat(document.getElementById('cPrice').value)||4.00,
+    payment_method:document.getElementById('cPay').value,
+    frequency:document.getElementById('cFreq').value,
+    notes:document.getElementById('cNotes').value.trim()||null,
+    active:true
+  });
+  if(error){ showAlert('Error: '+error.message,'e'); return; }
+  showAlert(name+' added','s');
+  clearCustForm();
+  loadCustomers();
+}
+
+async function removeCust(id){
+  if(!confirm('Remove this customer?')) return;
+  await sb.from('customers').update({active:false}).eq('id',id);
+  loadCustomers();
+}
+
+async function sendJobNow(custId){
+  const cust=customers.find(c=>c.id===custId);
+  if(!cust){ showAlert('Customer not found','e'); return; }
+  const round=rounds.find(r=>r.id===cust.round_id);
+  const today=new Date().toISOString().split('T')[0];
+  const {error}=await sb.from('jobs_live').insert({
+    company_id:COMPANY, customer_id:custId,
+    operative_id:round?.operative_id||null,
+    round_id:cust.round_id||null,
+    scheduled_date:today,
+    address:cust.address, postcode:cust.postcode,
+    price:cust.price, payment_method:cust.payment_method,
+    notes:cust.notes||null, status:'pending', payment_status:'unpaid'
+  });
+  if(error){ showAlert('Error: '+error.message,'e'); return; }
+  showAlert('Job created for '+cust.name+' today','s');
+  loadJobs();
+}
+
+function clearCustForm(){
+  ['cName','cAddr','cPc','cPhone','cEmail','cPrice','cNotes'].forEach(id=>{
+    document.getElementById(id).value='';
+  });
+}
+
+// ── JOBS ─────────────────────────────
+async function loadJobs(){
+  document.getElementById('jobsLoader').classList.add('show');
+  document.getElementById('jobsTbl').style.display='none';
+  const date=document.getElementById('filterDate').value;
+  const opFilter=document.getElementById('filterOp').value;
+
+  let q=sb.from('jobs_live')
+    .select('*, operative:operatives(name,colour)')
+    .eq('company_id',COMPANY).eq('scheduled_date',date)
+    .order('sort_order',{ascending:true,nullsFirst:false})
+    .order('created_at');
+  if(opFilter) q=q.eq('operative_id',opFilter);
+
+  const {data}=await q;
+  jobs=data||[];
+
+  document.getElementById('jobsLoader').classList.remove('show');
+  document.getElementById('jobsTbl').style.display='block';
+
+  const statusBadge=(s)=>{
+    const map={pending:'badge-blue pending',done:'badge-green done',
+               missed:'badge-red missed',return:'badge-amber return'};
+    return `<span class="badge ${map[s]||'badge-blue'}">${s||'pending'}</span>`;
+  };
+
+  document.getElementById('jobsBody').innerHTML=jobs.map(j=>`<tr>
+    <td style="font-weight:700;font-family:var(--mono);font-size:.75rem">${j.address||'—'}</td>
+    <td style="font-family:var(--mono);font-size:.72rem">${j.postcode||'—'}</td>
+    <td>
+      <span style="display:inline-flex;align-items:center;gap:5px">
+        <span style="width:8px;height:8px;border-radius:50%;background:${j.operative?.colour||'#666'};flex-shrink:0"></span>
+        ${j.operative?.name||'—'}
+      </span>
+    </td>
+    <td>${statusBadge(j.status)}</td>
+    <td style="font-family:var(--mono)">${j.payment_amount?'£'+parseFloat(j.payment_amount).toFixed(2):(j.payment_method==='direct_debit'?'DD':'—')}</td>
+    <td style="font-family:var(--mono);font-size:.68rem;color:var(--muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${j.notes||'—'}</td>
+    <td style="display:flex;gap:5px">
+      <select onchange="changeJobOp('${j.id}',this.value)" style="background:var(--card);border:1px solid var(--line);border-radius:6px;padding:4px 6px;color:var(--white);font-family:var(--mono);font-size:.65rem">
+        <option value="">Re-assign…</option>
+        ${operatives.map(op=>`<option value="${op.id}" ${op.id===j.operative_id?'selected':''}>${op.name}</option>`).join('')}
+      </select>
+      <button class="btn btn-red btn-sm" onclick="deleteJob('${j.id}')">✕</button>
+    </td>
+  </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);font-family:var(--mono);padding:20px">No jobs found</td></tr>';
+}
+
+async function createJob(){
+  const date=document.getElementById('jDate').value;
+  const opId=document.getElementById('jOp').value;
+  const roundId=document.getElementById('jRound').value;
+  const addr=document.getElementById('jAddr').value.trim();
+  const pc=document.getElementById('jPc').value.trim().toUpperCase();
+  const price=parseFloat(document.getElementById('jPrice').value)||4.00;
+  const pay=document.getElementById('jPay').value;
+  const notes=document.getElementById('jNotes').value.trim();
+
+  if(!date||!addr||!pc){ showAlert('Date, address and postcode required','e'); return; }
+
+  const {error}=await sb.from('jobs_live').insert({
+    company_id:COMPANY, operative_id:opId||null, round_id:roundId||null,
+    scheduled_date:date, address:addr, postcode:pc, price, payment_method:pay,
+    notes:notes||null, status:'pending', payment_status:'unpaid'
+  });
+  if(error){ showAlert('Error: '+error.message,'e'); return; }
+  showAlert('Job created for '+addr,'s');
+  clearJobForm();
+  loadJobs();
+}
+
+async function changeJobOp(jobId, opId){
+  if(!opId) return;
+  await sb.from('jobs_live').update({operative_id:opId}).eq('id',jobId);
+  showAlert('Job reassigned','s');
+}
+
+async function deleteJob(id){
+  if(!confirm('Delete this job?')) return;
+  await sb.from('jobs_live').delete().eq('id',id);
+  loadJobs();
+}
+
+function clearJobForm(){
+  ['jAddr','jPc','jNotes'].forEach(id=>{ document.getElementById(id).value=''; });
+  document.getElementById('jPrice').value='';
+  document.getElementById('jOp').value='';
+  document.getElementById('jRound').value='';
+}
+</script>
+</body>
+</html>
