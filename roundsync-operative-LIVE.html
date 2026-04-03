@@ -509,10 +509,10 @@ async function fetchJobs(){
   try{
     const today=new Date().toISOString().split('T')[0];
     const {data,error}=await sb.from('jobs_live')
-      .select('*, customer:customers(name,address,postcode,notes,price,payment_method)')
+      .select('*, customer:customers(name,address,postcode,notes,price,payment_method,frequency)')
       .eq('operative_id',op.id).eq('scheduled_date',today)
-      .order('sort_order',{ascending:true,nullsFirst:false})
-      .order('created_at');
+      .order('sort_order',{ascending:true})
+      .order('created_at',{ascending:true});
     if(error) throw error;
     jobs=(data||[]).map(j=>({
       ...j,
@@ -521,6 +521,7 @@ async function fetchJobs(){
       notes:   j.notes||(j.customer?.notes)||'',
       price:   j.price||(j.customer?.price)||0,
       payment_method:j.payment_method||(j.customer?.payment_method)||'cash',
+      frequency: j.frequency||(j.customer?.frequency)||'',
     }));
     queue.forEach(q=>{ const j=jobs.find(x=>x.id===q.job_id); if(j){ j.status=q.status; if(q.amt)j.payment_amount=q.amt; }});
     hide(); render();
@@ -564,10 +565,19 @@ function parseTags(job){
   if(colourSrc.includes('BROWN')) tags.push({cls:'tag-brown',txt:'BROWN'});
   if(colourSrc.includes('BLUE'))  tags.push({cls:'tag-blue', txt:'BLUE'});
 
-  // Service type
-  const rn=String(job.round_name||'').toUpperCase();
-  if(rn.includes('ECO')) tags.push({cls:'tag-eco',txt:'ECO'});
-  else tags.push({cls:'tag-wb',txt:'WB'});
+  // Frequency badge
+  const freq=String(job.frequency||'').toUpperCase();
+  if(freq.startsWith('F')||freq.includes('FORT')||freq.includes('14'))
+    tags.push({cls:'tag-wb',txt:'F'});
+  else if(freq.startsWith('M')||freq.includes('MONTH')||freq.includes('28'))
+    tags.push({cls:'tag-wb',txt:'M'});
+  else if(freq.startsWith('W')||freq.includes('WEEK'))
+    tags.push({cls:'tag-wb',txt:'W'});
+
+  // X1/X2/ADV credit — customer has paid ahead, no cash due today
+  const notesUp=String(job.notes||'').toUpperCase();
+  if(notesUp.match(/\bX\d+\b|\bADV\b|\bCREDIT\b/))
+    tags.push({cls:'tag-green',txt:'CREDIT'});
 
   // Payment
   if(pay==='direct_debit'||notes.includes('DIRECT DEBIT')||notes.includes(' DD'))
@@ -680,8 +690,7 @@ function makeJobRow(job){
         ${tags.map(t=>`<span class="tag ${t.cls}">${t.txt}</span>`).join('')}
       </div>
       ${note?`<div class="job-note-txt">📋 ${note}</div>`:''}
-    </div>
-    <div class="job-btns">
+    </div>    <div class="job-btns">
       <button class="jb" onclick="toggleDetail('${job.id}')" title="Notes/Photo" style="background:rgba(255,255,255,.06);color:var(--muted)">⋮</button>
       <button class="jb jb-map"  onclick="window.open('${mapsUrl}','_blank')" title="Map">📍</button>
       <button class="jb jb-ret ${retCls}"  onclick="setSt('${job.id}','return')" title="Return">↩</button>
@@ -789,9 +798,11 @@ async function setSt(id,status){
   const job=jobs.find(j=>j.id===id);
   if(!job) return;
   const pay=String(job.payment_method||'').toLowerCase();
-  const dd=pay==='direct_debit'||String(job.notes||'').toUpperCase().includes('DIRECT DEBIT');
-  const pp=String(job.notes||'').toUpperCase().includes('PAYPAL');
-  if(status==='done'&&!dd&&!pp){ payJob=job; openPayModal(job); return; }
+  const notesUp=String(job.notes||'').toUpperCase();
+  const dd=pay==='direct_debit'||notesUp.includes('DIRECT DEBIT');
+  const pp=notesUp.includes('PAYPAL');
+  const credit=notesUp.match(/\bX\d+\b|\bADV\b|\bCREDIT\b/);
+  if(status==='done'&&!dd&&!pp&&!credit){ payJob=job; openPayModal(job); return; }
   await applyStatus(job,status,null,null);
 }
 
