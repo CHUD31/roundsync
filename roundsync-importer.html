@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RoundSync — Customer Importer</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --black:#0D0D0D;--surface:#161616;--card:#1E1E1E;
+  --line:rgba(255,255,255,.08);--white:#F5F5F0;
+  --muted:rgba(245,245,240,.4);--green:#00E676;
+  --red:#FF3D57;--amber:#FFB300;--blue:#2979FF;
+  --mono:'JetBrains Mono',monospace;
+  --body:'Outfit',sans-serif;
+}
+body{font-family:var(--body);background:var(--black);color:var(--white);
+  min-height:100vh;-webkit-font-smoothing:antialiased}
+.container{max-width:960px;margin:0 auto;padding:32px 24px}
+
+/* Header */
+.hdr{display:flex;align-items:center;gap:12px;margin-bottom:40px;
+  padding-bottom:24px;border-bottom:1px solid var(--line)}
+.hdr-mark{width:36px;height:36px;background:var(--green);border-radius:10px;
+  display:flex;align-items:center;justify-content:center}
+.hdr-mark svg{width:20px;height:20px}
+.hdr-title{font-size:1.4rem;font-weight:800;letter-spacing:-.5px}
+.hdr-sub{font-family:var(--mono);font-size:.7rem;color:var(--muted);
+  letter-spacing:2px;text-transform:uppercase;margin-top:2px}
+
+/* Steps */
+.step{background:var(--surface);border:1px solid var(--line);
+  border-radius:16px;padding:28px;margin-bottom:20px}
+.step-hdr{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+.step-num{width:28px;height:28px;background:var(--green);border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:.8rem;color:#000;flex-shrink:0}
+.step-title{font-size:1rem;font-weight:700}
+.step-desc{font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-top:2px}
+
+/* Drop zone */
+.dropzone{
+  border:2px dashed rgba(0,230,118,.3);border-radius:12px;
+  padding:48px 24px;text-align:center;
+  transition:all .2s;cursor:pointer;
+  background:rgba(0,230,118,.02);
+}
+.dropzone:hover,.dropzone.over{
+  border-color:var(--green);background:rgba(0,230,118,.05)}
+.drop-icon{font-size:2.5rem;margin-bottom:12px}
+.drop-title{font-size:1rem;font-weight:700;margin-bottom:6px}
+.drop-sub{font-family:var(--mono);font-size:.72rem;color:var(--muted)}
+.drop-btn{
+  margin-top:16px;padding:10px 24px;
+  background:var(--green);color:#000;border:none;
+  border-radius:8px;font-family:var(--body);font-weight:700;
+  font-size:.85rem;cursor:pointer;transition:all .2s;
+}
+.drop-btn:hover{opacity:.85}
+#fileInput{display:none}
+
+/* Sheet selector */
+.sheet-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.sheet-btn{
+  padding:6px 16px;border-radius:8px;border:1px solid var(--line);
+  background:var(--card);color:var(--muted);
+  font-family:var(--mono);font-size:.72rem;cursor:pointer;transition:all .2s;
+}
+.sheet-btn.on{border-color:var(--green);color:var(--green);background:rgba(0,230,118,.08)}
+
+/* Column mapper */
+.mapper{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.map-row{background:var(--card);border-radius:10px;padding:14px}
+.map-label{font-family:var(--mono);font-size:.65rem;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.map-req{color:var(--green)}
+select{
+  width:100%;padding:8px 10px;
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:8px;color:var(--white);font-family:var(--mono);
+  font-size:.75rem;cursor:pointer;
+}
+select:focus{outline:none;border-color:var(--green)}
+
+/* Preview table */
+.tbl-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--line)}
+table{width:100%;border-collapse:collapse;font-size:.78rem}
+th{background:var(--card);padding:10px 14px;text-align:left;
+  font-family:var(--mono);font-size:.62rem;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.5px;
+  border-bottom:1px solid var(--line)}
+td{padding:10px 14px;border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:.72rem}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.td-name{font-weight:600;color:var(--white)}
+.td-addr{color:var(--muted)}
+.badge{display:inline-flex;padding:2px 8px;border-radius:100px;
+  font-size:.62rem;font-weight:600}
+.badge-dd{background:rgba(41,121,255,.15);color:var(--blue)}
+.badge-cash{background:rgba(0,230,118,.12);color:var(--green)}
+
+/* Round assign */
+.round-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.round-card{
+  background:var(--card);border:1.5px solid var(--line);
+  border-radius:10px;padding:14px;cursor:pointer;transition:all .2s;
+}
+.round-card.sel{border-color:var(--green);background:rgba(0,230,118,.06)}
+.round-card-name{font-weight:700;font-size:.9rem;margin-bottom:3px}
+.round-card-sub{font-family:var(--mono);font-size:.65rem;color:var(--muted)}
+
+/* Import btn */
+.import-btn{
+  width:100%;padding:16px;border:none;border-radius:12px;
+  background:var(--green);color:#000;
+  font-family:var(--body);font-weight:800;font-size:1rem;
+  cursor:pointer;transition:all .2s;letter-spacing:-.2px;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+}
+.import-btn:disabled{opacity:.4;cursor:not-allowed}
+.import-btn:not(:disabled):hover{opacity:.85}
+
+/* Progress */
+.prog-wrap{background:var(--card);border-radius:10px;padding:20px;margin-top:16px}
+.prog-bar-track{height:6px;background:var(--line);border-radius:3px;margin:12px 0}
+.prog-bar-fill{height:100%;background:var(--green);border-radius:3px;transition:width .3s}
+.prog-txt{font-family:var(--mono);font-size:.75rem;color:var(--muted)}
+
+/* Alerts */
+.alert{border-radius:10px;padding:14px 18px;font-family:var(--mono);
+  font-size:.78rem;margin-bottom:16px;display:flex;gap:10px;align-items:flex-start}
+.alert-info{background:rgba(41,121,255,.1);border:1px solid rgba(41,121,255,.3);color:rgba(150,190,255,.9)}
+.alert-success{background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.3);color:var(--green)}
+.alert-warn{background:rgba(255,179,0,.1);border:1px solid rgba(255,179,0,.3);color:var(--amber)}
+
+/* Template download */
+.tmpl-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:10px 18px;background:var(--card);
+  border:1px solid var(--line);border-radius:8px;
+  font-family:var(--mono);font-size:.72rem;color:var(--muted);
+  cursor:pointer;transition:all .2s;text-decoration:none;
+}
+.tmpl-btn:hover{border-color:var(--green);color:var(--green)}
+
+/* Util */
+.hidden{display:none!important}
+.mt{margin-top:16px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.count-badge{
+  background:var(--green);color:#000;
+  font-family:var(--mono);font-size:.68rem;font-weight:700;
+  padding:2px 10px;border-radius:100px;
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="hdr">
+    <div class="hdr-mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round">
+        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+        <path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+      </svg>
+    </div>
+    <div>
+      <div class="hdr-title">RoundSync — Customer Importer</div>
+      <div class="hdr-sub">Import your Excel customer list into RoundSync</div>
+    </div>
+  </div>
+
+  <!-- Step 0: Download template -->
+  <div class="step">
+    <div class="step-hdr">
+      <div class="step-num">↓</div>
+      <div>
+        <div class="step-title">Download Template (optional)</div>
+        <div class="step-desc">Use this template to format your data, or use your existing Excel file</div>
+      </div>
+    </div>
+    <button class="tmpl-btn" onclick="downloadTemplate()">⬇ Download Import Template (.xlsx)</button>
+    <div class="alert alert-info mt">
+      💡 Your Excel file needs at minimum: <strong>Name</strong>, <strong>Address</strong>, <strong>Postcode</strong>. Price and payment method are optional but recommended.
+    </div>
+  </div>
+
+  <!-- Step 1: Upload -->
+  <div class="step">
+    <div class="step-hdr">
+      <div class="step-num">1</div>
+      <div>
+        <div class="step-title">Upload Your Excel File</div>
+        <div class="step-desc">Drop your .xlsx or .xls customer file here</div>
+      </div>
+    </div>
+    <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()"
+      ondragover="doDragOver(event)" ondragleave="doDragLeave(event)" ondrop="doDrop(event)">
+      <div class="drop-icon">📊</div>
+      <div class="drop-title" id="dropTitle">Drop your Excel file here</div>
+      <div class="drop-sub" id="dropSub">or click to browse</div>
+      <button class="drop-btn" onclick="event.stopPropagation();document.getElementById('fileInput').click()">
+        Choose File
+      </button>
+    </div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" onchange="loadFile(this)">
+
+    <!-- Sheet selector -->
+    <div id="sheetSection" class="hidden mt">
+      <div class="map-label">Select Sheet</div>
+      <div class="sheet-row" id="sheetBtns"></div>
+    </div>
+  </div>
+
+  <!-- Step 2: Map columns -->
+  <div class="step hidden" id="step2">
+    <div class="step-hdr">
+      <div class="step-num">2</div>
+      <div>
+        <div class="step-title">Match Your Columns</div>
+        <div class="step-desc">Tell us which column in your file matches each field</div>
+      </div>
+    </div>
+    <div class="mapper" id="mapper"></div>
+
+    <div class="mt">
+      <div class="row">
+        <span class="map-label">Preview (first 5 rows)</span>
+        <span class="count-badge" id="totalCount">0 rows</span>
+      </div>
+      <div class="tbl-wrap mt" id="previewWrap">
+        <table id="previewTable"></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: Assign round -->
+  <div class="step hidden" id="step3">
+    <div class="step-hdr">
+      <div class="step-num">3</div>
+      <div>
+        <div class="step-title">Assign to a Round</div>
+        <div class="step-desc">Which round should these customers be added to?</div>
+      </div>
+    </div>
+    <div class="round-grid" id="roundGrid">
+      <div style="color:var(--muted);font-family:var(--mono);font-size:.78rem">Loading rounds…</div>
+    </div>
+  </div>
+
+  <!-- Step 4: Import -->
+  <div class="step hidden" id="step4">
+    <div class="step-hdr">
+      <div class="step-num">4</div>
+      <div>
+        <div class="step-title">Import Customers</div>
+        <div class="step-desc">Review and confirm your import</div>
+      </div>
+    </div>
+
+    <div id="importSummary" class="alert alert-info"></div>
+
+    <button class="import-btn" id="importBtn" onclick="doImport()">
+      ⬆ Import Customers to RoundSync
+    </button>
+
+    <div class="prog-wrap hidden" id="progWrap">
+      <div class="prog-txt" id="progTxt">Importing…</div>
+      <div class="prog-bar-track">
+        <div class="prog-bar-fill" id="progBar" style="width:0%"></div>
+      </div>
+      <div class="prog-txt" id="progCount"></div>
+    </div>
+
+    <div id="importResult" class="hidden mt"></div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════
+const SB_URL = 'https://bqyvofnljjnffarkwzio.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxeXZvZm5sampuZmZhcmt3emlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjI1MjMsImV4cCI6MjA5MDc5ODUyM30.MsOpuhzSLIU79Xu4Dn9rBC7yqyYDm0vH3LkLmqqMWWU';
+const COMPANY_ID = '7b200f06-25d6-46d9-af9c-fa179ac44fed';
+
+const sb = supabase.createClient(SB_URL, SB_KEY);
+
+// State
+let wb = null, rows = [], headers = [], selectedSheet = 0;
+let selectedRound = null, rounds = [];
+
+// Fields to map
+const FIELDS = [
+  { key:'name',    label:'Customer Name',    req:true  },
+  { key:'address', label:'Address',          req:true  },
+  { key:'postcode',label:'Postcode',         req:true  },
+  { key:'price',   label:'Price (£)',        req:false },
+  { key:'payment', label:'Payment Method',   req:false },
+  { key:'notes',   label:'Notes',            req:false },
+  { key:'phone',   label:'Phone Number',     req:false },
+  { key:'email',   label:'Email',            req:false },
+];
+
+let mapping = {};
+
+// ═══════════════════════════════════════
+// TEMPLATE DOWNLOAD
+// ═══════════════════════════════════════
+function downloadTemplate(){
+  const wbT = XLSX.utils.book_new();
+  const data = [
+    ['Customer Name','Address','Postcode','Price','Payment Method','Notes','Phone','Email'],
+    ['Mrs Johnson','14 Acacia Ave, Birkenhead','CH41 2QN','4.00','cash','','0151 123 4567',''],
+    ['Mr Taylor','7 Elm Road, Prenton','CH43 3BJ','4.00','cash','Side gate only','',''],
+    ['Davies','23 Oak Street, Upton','CH49 4LX','4.50','direct_debit','','',''],
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{wch:20},{wch:30},{wch:12},{wch:8},{wch:16},{wch:25},{wch:15},{wch:25}];
+  XLSX.utils.book_append_sheet(wbT, ws, 'Customers');
+  XLSX.writeFile(wbT, 'RoundSync_Import_Template.xlsx');
+}
+
+// ═══════════════════════════════════════
+// FILE LOADING
+// ═══════════════════════════════════════
+function doDragOver(e){ e.preventDefault(); document.getElementById('dropzone').classList.add('over'); }
+function doDragLeave(){ document.getElementById('dropzone').classList.remove('over'); }
+function doDrop(e){
+  e.preventDefault(); document.getElementById('dropzone').classList.remove('over');
+  const file = e.dataTransfer.files[0];
+  if(file) processFile(file);
+}
+function loadFile(input){ if(input.files[0]) processFile(input.files[0]); }
+
+function processFile(file){
+  const reader = new FileReader();
+  reader.onload = e => {
+    wb = XLSX.read(e.target.result, {type:'array'});
+    document.getElementById('dropTitle').textContent = '✓ ' + file.name;
+    document.getElementById('dropSub').textContent = `${wb.SheetNames.length} sheet(s) found`;
+
+    // Sheet selector
+    const sec = document.getElementById('sheetSection');
+    const btns = document.getElementById('sheetBtns');
+    btns.innerHTML = '';
+    wb.SheetNames.forEach((name,i) => {
+      const b = document.createElement('button');
+      b.className = 'sheet-btn' + (i===0?' on':'');
+      b.textContent = name;
+      b.onclick = () => {
+        document.querySelectorAll('.sheet-btn').forEach(x=>x.classList.remove('on'));
+        b.classList.add('on'); selectedSheet=i; loadSheet();
+      };
+      btns.appendChild(b);
+    });
+    sec.classList.remove('hidden');
+    loadSheet();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function loadSheet(){
+  const ws = wb.Sheets[wb.SheetNames[selectedSheet]];
+  const data = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+  if(!data.length) return;
+
+  headers = data[0].map(String);
+  rows = data.slice(1).filter(r => r.some(c => String(c).trim()));
+
+  buildMapper();
+  buildPreview();
+  document.getElementById('step2').classList.remove('hidden');
+  document.getElementById('totalCount').textContent = rows.length + ' rows';
+  loadRounds();
+}
+
+// ═══════════════════════════════════════
+// COLUMN MAPPER
+// ═══════════════════════════════════════
+function buildMapper(){
+  const container = document.getElementById('mapper');
+  container.innerHTML = '';
+  mapping = {};
+
+  FIELDS.forEach(f => {
+    // Auto-detect best match
+    const best = autoMatch(f.key, headers);
+    mapping[f.key] = best;
+
+    const div = document.createElement('div');
+    div.className = 'map-row';
+    div.innerHTML = `
+      <div class="map-label">${f.label}${f.req?'<span class="map-req"> *</span>':''}</div>
+      <select onchange="mapping['${f.key}']=this.value;buildPreview()">
+        <option value="">— Skip this field —</option>
+        ${headers.map((h,i)=>`<option value="${i}" ${best===i?'selected':''}>${h}</option>`).join('')}
+      </select>`;
+    container.appendChild(div);
+  });
+}
+
+function autoMatch(key, hdrs){
+  const patterns = {
+    name:    ['name','customer','client','surname','fullname','full name'],
+    address: ['address','addr','street','road','avenue','lane'],
+    postcode:['postcode','post code','postal','zip'],
+    price:   ['price','cost','amount','fee','charge','rate'],
+    payment: ['payment','method','pay','type'],
+    notes:   ['notes','note','comments','comment','instructions','info'],
+    phone:   ['phone','tel','mobile','number','contact'],
+    email:   ['email','e-mail','mail'],
+  };
+  const keys = patterns[key]||[];
+  for(let i=0;i<hdrs.length;i++){
+    const h = hdrs[i].toLowerCase();
+    if(keys.some(k=>h.includes(k))) return i;
+  }
+  return '';
+}
+
+// ═══════════════════════════════════════
+// PREVIEW TABLE
+// ═══════════════════════════════════════
+function buildPreview(){
+  const preview = rows.slice(0,5);
+  const tbl = document.getElementById('previewTable');
+  tbl.innerHTML = `<tr>
+    <th>Name</th><th>Address</th><th>Postcode</th>
+    <th>Price</th><th>Payment</th><th>Notes</th>
+  </tr>` + preview.map(r => {
+    const g = k => mapping[k]!=='' && mapping[k]!==undefined ? (r[mapping[k]]||'') : '—';
+    const pay = String(g('payment')).toLowerCase();
+    const payLabel = pay.includes('direct')||pay.includes('dd')||pay.includes('gocard')
+      ? '<span class="badge badge-dd">Direct Debit</span>'
+      : (pay?`<span class="badge badge-cash">${pay}</span>`:'—');
+    return `<tr>
+      <td class="td-name">${g('name')}</td>
+      <td class="td-addr">${g('address')}</td>
+      <td>${g('postcode')}</td>
+      <td>${g('price')?'£'+parseFloat(g('price')||0).toFixed(2):'—'}</td>
+      <td>${payLabel}</td>
+      <td style="color:var(--amber)">${g('notes')||'—'}</td>
+    </tr>`;
+  }).join('');
+
+  updateSummary();
+}
+
+// ═══════════════════════════════════════
+// ROUNDS
+// ═══════════════════════════════════════
+async function loadRounds(){
+  try{
+    const {data} = await sb.from('rounds')
+      .select('*, operative:operatives(name,colour)')
+      .eq('company_id', COMPANY_ID).eq('active',true);
+    rounds = data||[];
+    buildRoundGrid();
+    document.getElementById('step3').classList.remove('hidden');
+    document.getElementById('step4').classList.remove('hidden');
+  }catch(e){ console.error(e); }
+}
+
+function buildRoundGrid(){
+  const grid = document.getElementById('roundGrid');
+  grid.innerHTML = rounds.map(r => `
+    <div class="round-card" onclick="selectRound('${r.id}',this)"
+      style="border-color:${selectedRound===r.id?'var(--green)':'var(--line)'}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="width:10px;height:10px;border-radius:50%;background:${r.operative?.colour||'#666'};flex-shrink:0"></div>
+        <div class="round-card-name">${r.name}</div>
+      </div>
+      <div class="round-card-sub">${r.operative?.name||'Unassigned'} · ${r.frequency}</div>
+    </div>`).join('') || '<div style="color:var(--muted);font-family:var(--mono);font-size:.78rem">No rounds found</div>';
+}
+
+function selectRound(id, el){
+  selectedRound = id;
+  document.querySelectorAll('.round-card').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+  updateSummary();
+}
+
+// ═══════════════════════════════════════
+// SUMMARY
+// ═══════════════════════════════════════
+function updateSummary(){
+  const round = rounds.find(r=>r.id===selectedRound);
+  const sum = document.getElementById('importSummary');
+  const btn = document.getElementById('importBtn');
+  if(!mapping.name && !mapping.address){
+    sum.textContent='⚠ Please map at least Name and Address columns above.';
+    sum.className='alert alert-warn';btn.disabled=true;return;
+  }
+  if(!selectedRound){
+    sum.textContent='⚠ Please select a round to assign customers to.';
+    sum.className='alert alert-warn';btn.disabled=true;return;
+  }
+  sum.innerHTML=`✓ Ready to import <strong>${rows.length} customers</strong> into <strong>${round?.name||'selected round'}</strong>.`;
+  sum.className='alert alert-success';btn.disabled=false;
+}
+
+// ═══════════════════════════════════════
+// IMPORT
+// ═══════════════════════════════════════
+async function doImport(){
+  if(!selectedRound||!rows.length) return;
+
+  document.getElementById('importBtn').disabled=true;
+  document.getElementById('progWrap').classList.remove('hidden');
+
+  let done=0, errors=0;
+  const roundData = rounds.find(r=>r.id===selectedRound);
+
+  for(const row of rows){
+    const g = k => {
+      if(mapping[k]===''||mapping[k]===undefined) return '';
+      return String(row[mapping[k]]||'').trim();
+    };
+
+    const pay = g('payment').toLowerCase();
+    const payMethod = (pay.includes('direct')||pay.includes('dd')||pay.includes('gc'))
+      ? 'direct_debit' : 'cash';
+    const price = parseFloat(g('price'))||4.00;
+
+    const customer = {
+      company_id:     COMPANY_ID,
+      round_id:       selectedRound,
+      name:           g('name'),
+      address:        g('address'),
+      postcode:       g('postcode').toUpperCase(),
+      price:          price,
+      payment_method: payMethod,
+      notes:          g('notes')||null,
+      phone:          g('phone')||null,
+      email:          g('email')||null,
+      active:         true,
+    };
+
+    if(!customer.name && !customer.address){ done++; continue; }
+
+    try{
+      await sb.from('customers').insert(customer);
+      done++;
+    }catch(e){
+      console.error(e, customer);
+      errors++;
+    }
+
+    const pct = Math.round((done+errors)/rows.length*100);
+    document.getElementById('progBar').style.width=pct+'%';
+    document.getElementById('progTxt').textContent=`Importing… ${pct}%`;
+    document.getElementById('progCount').textContent=`${done+errors} / ${rows.length}`;
+  }
+
+  document.getElementById('progTxt').textContent='Import complete!';
+  const res = document.getElementById('importResult');
+  res.classList.remove('hidden');
+  res.className = errors ? 'alert alert-warn mt' : 'alert alert-success mt';
+  res.innerHTML = errors
+    ? `⚠ Imported ${done} customers successfully. ${errors} rows had errors — check the console for details.`
+    : `✓ All ${done} customers imported successfully into "${roundData?.name}"! Open the owner dashboard to see them.`;
+}
+
+// Init
+window.addEventListener('load', ()=>{
+  // Pre-load rounds in background
+  sb.from('rounds').select('*, operative:operatives(name,colour)')
+    .eq('company_id', COMPANY_ID).eq('active',true)
+    .then(({data})=>{ rounds=data||[]; });
+});
+</script>
+</body>
+</html>
