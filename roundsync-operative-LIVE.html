@@ -532,21 +532,37 @@ async function fetchJobs(){
 // ══════════════════════════════════════
 function parseAddr(addr){
   const s=String(addr||'').trim();
-  const m=s.match(/^(\d+[A-Za-z]?(?:\s*[-–]\s*\d+[A-Za-z]?)?|\*\d+\*|\d+\s*@\s*\w+)\s+(.+)$/);
-  if(m) return {house:m[1].trim(), street:m[2].trim()};
+
+  // JARVIS format: "67- GREY WALSINGHAM RD" or "5-GREY WITHINGTON ROAD" or "- GREY KENILWORTH RD"
+  // House num (optional) + dash + bin colour + street
+  const colourInAddr = s.match(/^(\d*[A-Za-z]?)\s*[-–]\s*(?:GREY|GREEN|BROWN|BLUE)\s+(.+)$/i);
+  if(colourInAddr){
+    return {house:colourInAddr[1].trim()||'', street:colourInAddr[2].trim()};
+  }
+
+  // JARVIS asterisk special: "*55* CLIFF ROAD"
+  const asterisk = s.match(/^\*(\d+[A-Za-z]?)\*\s+(.+)$/);
+  if(asterisk) return {house:asterisk[1], street:asterisk[2]};
+
+  // Normal: "18 CLIFF ROAD" or "48A ELM ROAD"
+  const normal = s.match(/^(\d+[A-Za-z]?(?:\s*[-–]\s*\d+[A-Za-z]?)?|\d+\s*@\s*\S+)\s+(.+)$/);
+  if(normal) return {house:normal[1].trim(), street:normal[2].trim()};
+
   return {house:'', street:s};
 }
 
 function parseTags(job){
   const notes=String(job.notes||'').toUpperCase();
+  const addr=String(job.address||'').toUpperCase();
   const pay=String(job.payment_method||'').toLowerCase();
   const tags=[];
 
-  // Bin colour
-  if(notes.includes('GREY'))  tags.push({cls:'tag-grey', txt:'GREY'});
-  if(notes.includes('GREEN')) tags.push({cls:'tag-green',txt:'GREEN'});
-  if(notes.includes('BROWN')) tags.push({cls:'tag-brown',txt:'BROWN'});
-  if(notes.includes('BLUE'))  tags.push({cls:'tag-blue', txt:'BLUE'});
+  // Bin colour — check notes AND address (JARVIS stores it in address as "67- GREY ROAD")
+  const colourSrc = notes + ' ' + addr;
+  if(colourSrc.includes('GREY'))  tags.push({cls:'tag-grey', txt:'GREY'});
+  if(colourSrc.includes('GREEN')) tags.push({cls:'tag-green',txt:'GREEN'});
+  if(colourSrc.includes('BROWN')) tags.push({cls:'tag-brown',txt:'BROWN'});
+  if(colourSrc.includes('BLUE'))  tags.push({cls:'tag-blue', txt:'BLUE'});
 
   // Service type
   const rn=String(job.round_name||'').toUpperCase();
@@ -658,14 +674,15 @@ function makeJobRow(job){
   const retCls=job.status==='return'?'on':'';
 
   return `<div class="job-row ${rowCls}" id="row-${job.id}">
-    <div class="job-num" onclick="toggleDetail('${job.id}')" style="cursor:pointer">${house||'#'}</div>
-    <div class="job-info" onclick="toggleDetail('${job.id}')" style="cursor:pointer">
+    <div class="job-num">${house||'?'}</div>
+    <div class="job-info">
       <div class="job-tags">
         ${tags.map(t=>`<span class="tag ${t.cls}">${t.txt}</span>`).join('')}
       </div>
       ${note?`<div class="job-note-txt">📋 ${note}</div>`:''}
     </div>
     <div class="job-btns">
+      <button class="jb" onclick="toggleDetail('${job.id}')" title="Notes/Photo" style="background:rgba(255,255,255,.06);color:var(--muted)">⋮</button>
       <button class="jb jb-map"  onclick="window.open('${mapsUrl}','_blank')" title="Map">📍</button>
       <button class="jb jb-ret ${retCls}"  onclick="setSt('${job.id}','return')" title="Return">↩</button>
       <button class="jb jb-miss ${missCls}" onclick="setSt('${job.id}','missed')" title="Missed">✗</button>
