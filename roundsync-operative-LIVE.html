@@ -289,7 +289,14 @@ body.offline .offline-bar{display:block}
   color:var(--muted);border-radius:11px;padding:12px 14px;
   font-size:.8rem;cursor:pointer;transition:all .2s}
 
-/* ── JOB DETAIL PANEL ─────────────── */
+.job-house{display:flex;flex-direction:column;align-items:center;min-width:42px;flex-shrink:0;gap:3px}
+.job-price-tag{
+  font-family:var(--mono);font-size:.6rem;font-weight:700;
+  padding:2px 5px;border-radius:5px;
+  background:rgba(0,230,118,.15);color:var(--green);white-space:nowrap;
+}
+.job-price-tag.auto{background:rgba(179,136,255,.12);color:var(--purple)}
+.job-price-tag.credit{background:rgba(41,121,255,.12);color:var(--blue)}
 .job-detail{
   display:none;background:var(--card2);
   border-top:1px solid var(--line);padding:12px 14px;
@@ -534,31 +541,39 @@ async function fetchJobs(){
 function parseAddr(addr){
   const s=String(addr||'').trim();
 
-  // JARVIS format: "67- GREY WALSINGHAM RD" or "5-GREY WITHINGTON ROAD" or "- GREY KENILWORTH RD"
-  // House num (optional) + dash + bin colour + street
+  // JARVIS: "67- GREY WALSINGHAM RD" or "5-GREY WITHINGTON ROAD" or "- GREY KENILWORTH RD"
   const colourInAddr = s.match(/^(\d*[A-Za-z]?)\s*[-–]\s*(?:GREY|GREEN|BROWN|BLUE)\s+(.+)$/i);
-  if(colourInAddr){
-    return {house:colourInAddr[1].trim()||'', street:colourInAddr[2].trim()};
-  }
+  if(colourInAddr) return {house:colourInAddr[1].trim()||'', street:colourInAddr[2].trim(), bins:''};
 
-  // JARVIS asterisk special: "*55* CLIFF ROAD"
+  // JARVIS asterisk + bin count: "*187* X3 SEABANK RD"
+  const asteriskBins = s.match(/^\*(\d+[A-Za-z]?)\*\s+(X\d+)\s+(.+)$/i);
+  if(asteriskBins) return {house:asteriskBins[1], street:asteriskBins[3].trim(), bins:asteriskBins[2].toUpperCase()};
+
+  // JARVIS asterisk only: "*55* CLIFF ROAD"
   const asterisk = s.match(/^\*(\d+[A-Za-z]?)\*\s+(.+)$/);
-  if(asterisk) return {house:asterisk[1], street:asterisk[2]};
+  if(asterisk) return {house:asterisk[1], street:asterisk[2].trim(), bins:''};
 
-  // Normal: "18 CLIFF ROAD" or "48A ELM ROAD"
+  // JARVIS bin count in address: "70 X2 SEABANK RD" or "70 X3 SEABANK RD"
+  const withBins = s.match(/^(\d+[A-Za-z]?)\s+(X\d+)\s+(.+)$/i);
+  if(withBins) return {house:withBins[1], street:withBins[3].trim(), bins:withBins[2].toUpperCase()};
+
+  // Normal: "18 CLIFF ROAD"
   const normal = s.match(/^(\d+[A-Za-z]?(?:\s*[-–]\s*\d+[A-Za-z]?)?|\d+\s*@\s*\S+)\s+(.+)$/);
-  if(normal) return {house:normal[1].trim(), street:normal[2].trim()};
+  if(normal) return {house:normal[1].trim(), street:normal[2].trim(), bins:''};
 
-  return {house:'', street:s};
+  return {house:'', street:s, bins:''};
 }
 
-function parseTags(job){
+function parseTags(job,bins){
   const notes=String(job.notes||'').toUpperCase();
   const addr=String(job.address||'').toUpperCase();
   const pay=String(job.payment_method||'').toLowerCase();
   const tags=[];
 
-  // Bin colour — check notes AND address (JARVIS stores it in address as "67- GREY ROAD")
+  // Bin count from address: X2, X3 etc
+  if(bins) tags.push({cls:'tag-wb',txt:bins+' BINS'});
+
+  // Bin colour — check notes AND address
   const colourSrc = notes + ' ' + addr;
   if(colourSrc.includes('GREY'))  tags.push({cls:'tag-grey', txt:'GREY'});
   if(colourSrc.includes('GREEN')) tags.push({cls:'tag-green',txt:'GREEN'});
@@ -627,8 +642,9 @@ function render(){
   const groupOrder=[];
   fj.forEach(j=>{
     const {street}=parseAddr(j.address);
-    const key=(street||j.address||'Unknown')+'|'+(j.postcode||'');
-    if(!groups[key]){ groups[key]={street:street||j.address,postcode:j.postcode||'',jobs:[]}; groupOrder.push(key); }
+    const cleanStreet=street||j.address||'Unknown';
+    const key=cleanStreet+'|'+(j.postcode||'');
+    if(!groups[key]){ groups[key]={street:cleanStreet,postcode:j.postcode||'',jobs:[]}; groupOrder.push(key); }
     groups[key].jobs.push(j);
   });
 
@@ -672,25 +688,36 @@ function makeStreetGroup(g){
 }
 
 function makeJobRow(job){
-  const {house}=parseAddr(job.address);
-  const tags=parseTags(job);
+  const parsed=parseAddr(job.address);
+  const {house,bins}=parsed;
+  const tags=parseTags(job,bins);
   const note=jobNote(job);
   const addr=String(job.address||'').trim();
   const pc=String(job.postcode||'').trim();
+  const pr=parseFloat(job.price||0);
   const mapsUrl=`https://maps.google.com/?q=${encodeURIComponent(addr+(pc?' '+pc:''))}`;
   const rowCls=job.status==='done'?'done-row':job.status==='missed'?'missed-row':'';
   const doneCls=job.status==='done'?'on':'';
   const missCls=job.status==='missed'?'on':'';
   const retCls=job.status==='return'?'on':'';
+  const notesUp=String(job.notes||'').toUpperCase();
+  const dd=String(job.payment_method||'').toLowerCase()==='direct_debit'||notesUp.includes('DIRECT DEBIT');
+  const pp=notesUp.includes('PAYPAL');
+  const credit=notesUp.match(/\bX\d+\b|\bADV\b|\bCREDIT\b/);
+  const priceDisplay=credit?'CREDIT':dd?'DD':pp?'PayPal':pr>0?`£${pr.toFixed(2)}`:'';
 
   return `<div class="job-row ${rowCls}" id="row-${job.id}">
-    <div class="job-num">${house||'?'}</div>
+    <div class="job-house">
+      <div class="job-num">${house||'?'}</div>
+      ${priceDisplay?`<div class="job-price-tag ${dd||pp?'auto':credit?'credit':''}">${priceDisplay}</div>`:''}
+    </div>
     <div class="job-info">
       <div class="job-tags">
         ${tags.map(t=>`<span class="tag ${t.cls}">${t.txt}</span>`).join('')}
       </div>
       ${note?`<div class="job-note-txt">📋 ${note}</div>`:''}
-    </div>    <div class="job-btns">
+    </div>
+    <div class="job-btns">
       <button class="jb" onclick="toggleDetail('${job.id}')" title="Notes/Photo" style="background:rgba(255,255,255,.06);color:var(--muted)">⋮</button>
       <button class="jb jb-map"  onclick="window.open('${mapsUrl}','_blank')" title="Map">📍</button>
       <button class="jb jb-ret ${retCls}"  onclick="setSt('${job.id}','return')" title="Return">↩</button>
@@ -699,9 +726,7 @@ function makeJobRow(job){
     </div>
   </div>
   <div class="job-detail" id="detail-${job.id}">
-    ${note
-      ? `<div class="detail-notes">📋 ${note}</div>`
-      : `<div class="detail-note-empty">No notes for this job</div>`}
+    ${note?`<div class="detail-notes">📋 ${note}</div>`:`<div class="detail-note-empty">No notes for this job</div>`}
     <div class="detail-row">
       <textarea class="note-input" id="noteinput-${job.id}" placeholder="Add a note…" rows="1"></textarea>
       <button class="note-save-btn" onclick="saveNote('${job.id}')">Save</button>
