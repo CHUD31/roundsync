@@ -595,24 +595,25 @@ function parseTags(job,bins){
   if(notesUp.match(/\bX\d+\b|\bADV\b|\bCREDIT\b/))
     tags.push({cls:'tag-green',txt:'CREDIT'});
 
-  // Payment
-  if(pay==='direct_debit'||notes.includes('DIRECT DEBIT')||notes.includes(' DD'))
+  // Payment method badge (DD/PayPal only — cash price shown in price tag below house number)
+  if(pay==='direct_debit'||notes.includes('DIRECT DEBIT')||notes.includes(' | DD'))
     tags.push({cls:'tag-dd',txt:'DD'});
   else if(notes.includes('PAYPAL')||notes.includes('PAYPAL AUTO'))
     tags.push({cls:'tag-paypal',txt:'PayPal'});
-  else{
-    const pr=parseFloat(job.price||0);
-    if(pr>0) tags.push({cls:'tag-cash',txt:'£'+pr.toFixed(2)});
-  }
   return tags;
 }
 
 function jobNote(job){
-  // Strip bin colours and payment methods — just show genuine notes
   let n=String(job.notes||'');
+  // Strip emails
+  n=n.replace(/\S+@\S+\.\S+/g,'');
+  // Strip bin colours and payment methods — keep genuine operational notes only
   n=n.replace(/\b(GREY|GREEN|BROWN|BLUE)\s*(BIN)?\b/gi,'')
      .replace(/\bDIRECT\s*DEBIT\b/gi,'').replace(/\bPAYPAL(\s*AUTO)?\b/gi,'')
      .replace(/\bDD\b/g,'').replace(/\|/g,' ').replace(/\s+/g,' ').trim();
+  // Strip anything that looks like just a name (all caps words, no digits, no operational keywords)
+  const opKeywords = /KNOCK|POST|SLIP|KEY|GATE|SIDE|FRONT|BACK|CALL|NOTE|PLEASE|MISS|FLAT|BLOCK|RETURN|CREDIT|ADV|X\d/i;
+  if(n && !opKeywords.test(n) && /^[A-Z\s\-']+$/i.test(n) && n.split(' ').length <= 4) n='';
   return n;
 }
 
