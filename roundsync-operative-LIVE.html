@@ -704,20 +704,23 @@ function makeJobRow(job){
   const retCls=job.status==='return'?'on':'';
   const notesUp=String(job.notes||'').toUpperCase();
   const dd=String(job.payment_method||'').toLowerCase()==='direct_debit'||notesUp.includes('DIRECT DEBIT');
-  const pp=notesUp.includes('PAYPAL')||notesUp.includes('PAYPAL AUTO');
-  const credit=notesUp.match(/\bX\d+\b|\bADV\b|\bCREDIT\b/);
-  // Try to extract price from notes if not set (e.g. "£4.50" in notes)
-  let displayPrice=pr;
+  const pp=String(job.payment_method||'').toLowerCase()==='paypal'||notesUp.includes('PAYPAL');
+  // X1/X2 credit: only in notes field (not address), means advance payment credit
+  const creditMatch=notesUp.match(/\bX(\d+)\b(?=.*(?:ADV|CREDIT|PAID))|(?:ADV|CREDIT)\s*X?(\d+)/i)||notesUp.match(/\bADV\b|\bCREDIT\b/i);
+  const credit=!!creditMatch;
+  // Try to extract price from notes if not set
+  let displayPrice=parseFloat(job.price||0);
   if(!displayPrice){
     const m=notesUp.match(/£(\d+\.?\d*)/);
     if(m) displayPrice=parseFloat(m[1]);
   }
-  const priceDisplay=credit?'CREDIT':dd?'DD':pp?'PayPal':displayPrice>0?`£${displayPrice.toFixed(2)}`:'?';
+  // Price tag: CREDIT for ADV customers, cash amount for cash, nothing for DD/PayPal
+  const priceDisplay=credit?'CREDIT':(!dd&&!pp&&displayPrice>0)?`£${displayPrice.toFixed(2)}`:(!dd&&!pp)?'?':'';
 
   return `<div class="job-row ${rowCls}" id="row-${job.id}">
     <div class="job-house">
       <div class="job-num">${house||'?'}</div>
-      <div class="job-price-tag ${dd||pp?'auto':credit?'credit':''}">${priceDisplay}</div>
+      ${priceDisplay?`<div class="job-price-tag ${credit?'credit':''}">${priceDisplay}</div>`:''}
     </div>
     <div class="job-info">
       <div class="job-tags">
@@ -833,8 +836,8 @@ async function setSt(id,status){
   const pay=String(job.payment_method||'').toLowerCase();
   const notesUp=String(job.notes||'').toUpperCase();
   const dd=pay==='direct_debit'||notesUp.includes('DIRECT DEBIT');
-  const pp=notesUp.includes('PAYPAL');
-  const credit=notesUp.match(/\bX\d+\b|\bADV\b|\bCREDIT\b/);
+  const pp=pay==='paypal'||notesUp.includes('PAYPAL');
+  const credit=notesUp.match(/\bADV\b|\bCREDIT\b/i);
   if(status==='done'&&!dd&&!pp&&!credit){ payJob=job; openPayModal(job); return; }
   await applyStatus(job,status,null,null);
 }
