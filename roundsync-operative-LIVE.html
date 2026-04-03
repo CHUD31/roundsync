@@ -289,7 +289,38 @@ body.offline .offline-bar{display:block}
   color:var(--muted);border-radius:11px;padding:12px 14px;
   font-size:.8rem;cursor:pointer;transition:all .2s}
 
-/* ── PAYMENT MODAL ───────────────── */
+/* ── JOB DETAIL PANEL ─────────────── */
+.job-detail{
+  display:none;background:var(--card2);
+  border-top:1px solid var(--line);padding:12px 14px;
+}
+.job-detail.open{display:block}
+.detail-notes{
+  font-family:var(--mono);font-size:.72rem;color:var(--amber);
+  margin-bottom:10px;line-height:1.5;white-space:pre-wrap;
+}
+.detail-note-empty{font-family:var(--mono);font-size:.7rem;color:var(--muted2);margin-bottom:10px}
+.detail-row{display:flex;gap:8px;margin-bottom:8px}
+.note-input{
+  flex:1;background:var(--surface);border:1px solid var(--line);
+  border-radius:8px;padding:8px 10px;color:var(--white);
+  font-family:var(--mono);font-size:.72rem;resize:none;
+  outline:none;min-height:38px;
+}
+.note-input:focus{border-color:var(--amber)}
+.note-save-btn{
+  background:var(--amber);color:#000;border:none;border-radius:8px;
+  padding:8px 12px;font-family:var(--body);font-weight:700;
+  font-size:.75rem;cursor:pointer;white-space:nowrap;flex-shrink:0;
+}
+.photo-btn{
+  background:rgba(41,121,255,.12);color:var(--blue);border:none;
+  border-radius:8px;padding:8px 12px;font-family:var(--body);
+  font-weight:700;font-size:.75rem;cursor:pointer;width:100%;
+  display:flex;align-items:center;justify-content:center;gap:7px;
+}
+.photo-preview{width:100%;border-radius:8px;margin-top:8px;display:none}
+.photo-input{display:none}
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);
   backdrop-filter:blur(8px);z-index:200;align-items:flex-end}
 .modal-bg.open{display:flex}
@@ -627,8 +658,8 @@ function makeJobRow(job){
   const retCls=job.status==='return'?'on':'';
 
   return `<div class="job-row ${rowCls}" id="row-${job.id}">
-    <div class="job-num">${house||'#'}</div>
-    <div class="job-info">
+    <div class="job-num" onclick="toggleDetail('${job.id}')" style="cursor:pointer">${house||'#'}</div>
+    <div class="job-info" onclick="toggleDetail('${job.id}')" style="cursor:pointer">
       <div class="job-tags">
         ${tags.map(t=>`<span class="tag ${t.cls}">${t.txt}</span>`).join('')}
       </div>
@@ -640,7 +671,85 @@ function makeJobRow(job){
       <button class="jb jb-miss ${missCls}" onclick="setSt('${job.id}','missed')" title="Missed">✗</button>
       <button class="jb jb-done ${doneCls}" onclick="setSt('${job.id}','done')"   title="Done">✓</button>
     </div>
-  </div>`;
+  </div>
+  <div class="job-detail" id="detail-${job.id}">
+    ${note
+      ? `<div class="detail-notes">📋 ${note}</div>`
+      : `<div class="detail-note-empty">No notes for this job</div>`}
+    <div class="detail-row">
+      <textarea class="note-input" id="noteinput-${job.id}" placeholder="Add a note…" rows="1"></textarea>
+      <button class="note-save-btn" onclick="saveNote('${job.id}')">Save</button>
+    </div>
+    <button class="photo-btn" onclick="document.getElementById('photo-${job.id}').click()">
+      📷 Take / Upload Photo
+    </button>
+    <input type="file" accept="image/*" capture="environment" class="photo-input" id="photo-${job.id}" onchange="handlePhoto('${job.id}',this)">
+    <img class="photo-preview" id="prev-${job.id}">
+  </div>`;}
+
+function toggleDetail(id){
+  const el=document.getElementById(`detail-${id}`);
+  if(el) el.classList.toggle('open');
+}
+
+async function saveNote(id){
+  const input=document.getElementById(`noteinput-${id}`);
+  const txt=input.value.trim();
+  if(!txt) return;
+  const job=jobs.find(j=>j.id===id);
+  if(!job) return;
+
+  // Append to existing notes
+  const existing=String(job.notes||'');
+  const stamp=new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  job.notes=existing?(existing+'\n'+stamp+': '+txt):(stamp+': '+txt);
+  input.value='';
+  toast('Note saved','s');
+
+  // Update in Supabase
+  if(!DEMO){
+    try{
+      await sb.from('jobs_live').update({notes:job.notes}).eq('id',id);
+    }catch(e){ console.error(e); }
+  }
+
+  // Refresh detail panel note display
+  const detail=document.getElementById(`detail-${id}`);
+  if(detail){
+    const noteEl=detail.querySelector('.detail-notes,.detail-note-empty');
+    if(noteEl){ noteEl.className='detail-notes'; noteEl.textContent='📋 '+job.notes; }
+  }
+}
+
+function handlePhoto(id,input){
+  const file=input.files[0];
+  if(!file) return;
+  const prev=document.getElementById(`prev-${id}`);
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    prev.src=e.target.result;
+    prev.style.display='block';
+    toast('Photo attached ✓','s');
+    // Store photo in Supabase Storage if available
+    if(!DEMO && sb){
+      try{
+        const fileName=`${id}_${Date.now()}.jpg`;
+        const {error}=await sb.storage.from('job-photos').upload(fileName,file,{contentType:file.type,upsert:true});
+        if(!error){
+          const {data}=sb.storage.from('job-photos').getPublicUrl(fileName);
+          if(data?.publicUrl){
+            const job=jobs.find(j=>j.id===id);
+            const note='📷 Photo: '+data.publicUrl;
+            const existing=String(job?.notes||'');
+            const updated=existing?(existing+'\n'+note):note;
+            await sb.from('jobs_live').update({notes:updated}).eq('id',id);
+          }
+        }
+      }catch(e){ console.log('Photo upload skipped (storage not set up):',e.message); }
+    }
+  };
+  reader.readAsDataURL(file);
+}
 }
 
 function escId(s){ return String(s||'').replace(/'/g,"\\'"); }
