@@ -730,7 +730,9 @@ async function fetchJobs(){
     const today=new Date().toISOString().split('T')[0];
     const {data,error}=await sb.from('jobs_live')
       .select('*, customer:customers(name,address,postcode,notes,price,payment_method)')
-      .eq('operative_id',op.id).eq('scheduled_date',today).order('created_at');
+      .eq('operative_id',op.id).eq('scheduled_date',today)
+      .order('sort_order',{ascending:true,nullsFirst:false})
+      .order('created_at');
     if(error) throw error;
     jobs=data||[];
     queue.forEach(q=>{
@@ -762,9 +764,16 @@ function addLbl(p,t){
 }
 
 function card(job){
-  const c=job.customer||{};
-  const dd=c.payment_method==='direct_debit';
-  const pr=parseFloat(c.price||job.price||0);
+  // Address: use direct job columns (JARVIS-pushed) or customer join (manual)
+  const c  = job.customer||{};
+  const addr    = job.address    || c.address    || '';
+  const pc      = job.postcode   || c.postcode   || '';
+  const notes   = job.notes      || c.notes      || '';
+  const pr      = parseFloat(job.price || c.price || 0);
+  const payMeth = job.payment_method || c.payment_method || 'cash';
+  const dd      = payMeth === 'direct_debit';
+  const roundName = job.round_name || '';
+  const idx = jobs.indexOf(job)+1;
   const el=document.createElement('div');
   el.className=`job ${job.status}`;
   el.id=`card-${job.id}`;
@@ -774,12 +783,12 @@ function card(job){
       <div class="job-body">
         <div class="job-top">
           <div>
-            <div class="job-name">Job #${String(jobs.indexOf(job)+1).padStart(3,'0')}</div>
-            <div class="job-addr">${c.address||''}${c.postcode?' · '+c.postcode:''}</div>
+            <div class="job-name">JOB #${String(idx).padStart(3,'0')}${roundName?' · '+roundName:''}</div>
+            <div class="job-addr">${addr}${pc?' · '+pc:''}</div>
           </div>
-          <div class="job-price">£${pr.toFixed(2)}</div>
+          <div class="job-price">${pr>0?'£'+pr.toFixed(2):'—'}</div>
         </div>
-        ${c.notes?`<div class="job-note">📋 ${c.notes}</div>`:''}
+        ${notes?`<div class="job-note">📋 ${notes}</div>`:''}
         <div class="job-badge ${dd?'dd':''}">${dd?'🔄 Direct Debit':'💷 Cash / Card'}</div>
         <div class="job-acts">
           <button class="jbtn jbtn-done  ${job.status==='done'  ?'on':''}" onclick="setStatus('${job.id}','done')">  ✓ Done</button>
@@ -800,7 +809,8 @@ function card(job){
 async function setStatus(id,status){
   const job=jobs.find(j=>j.id===id);
   if(!job) return;
-  const dd=(job.customer||{}).payment_method==='direct_debit';
+  const payMeth=job.payment_method||(job.customer||{}).payment_method||'cash';
+  const dd=payMeth==='direct_debit';
   if(status==='done'&&!dd){ payJob=job; openPay(job); return; }
   await apply(job,status,null,null);
 }
@@ -859,8 +869,10 @@ function updateBadge(){
 // ═══════════════════════════════════════
 function openPay(job){
   const c=job.customer||{};
-  document.getElementById('payName').textContent = (c.address||'').split(',')[0];
-  document.getElementById('payAmt').textContent=`£${parseFloat(c.price||0).toFixed(2)}`;
+  const addr=job.address||c.address||'';
+  const pr=parseFloat(job.price||c.price||0);
+  document.getElementById('payName').textContent=(addr||'').split(',')[0]||'Customer';
+  document.getElementById('payAmt').textContent=`£${pr.toFixed(2)}`;
   payMethod='cash';
   document.getElementById('mCash').classList.add('sel');
   document.getElementById('mCard').classList.remove('sel');
@@ -874,8 +886,9 @@ function pickMethod(m){
 async function confirmPay(){
   if(!payJob) return;
   const c=payJob.customer||{};
+  const pr=parseFloat(payJob.price||c.price||0);
   document.getElementById('payModal').classList.remove('open');
-  await apply(payJob,'done',parseFloat(c.price||0),payMethod);
+  await apply(payJob,'done',pr,payMethod);
   payJob=null;
 }
 async function skipPay(){
