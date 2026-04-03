@@ -8,537 +8,321 @@
 <meta name="apple-mobile-web-app-title" content="RoundSync">
 <meta name="theme-color" content="#0D0D0D">
 <title>RoundSync Field</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-/* ═══════════════════════════════════════
-   RESET & BASE
-═══════════════════════════════════════ */
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-
 :root{
-  --black:    #0D0D0D;
-  --surface:  #161616;
-  --card:     #1E1E1E;
-  --card-2:   #252525;
-  --line:     rgba(255,255,255,.07);
-  --white:    #F5F5F0;
-  --muted:    rgba(245,245,240,.35);
-  --muted2:   rgba(245,245,240,.15);
-  --green:    #00E676;
-  --green-d:  #00C060;
-  --red:      #FF3D57;
-  --amber:    #FFB300;
-  --blue:     #2979FF;
-  --mono:     'JetBrains Mono', monospace;
-  --body:     'Outfit', sans-serif;
+  --bg:#0D0D0D;--surface:#161616;--card:#1C1C1C;--card2:#242424;
+  --line:rgba(255,255,255,.07);--white:#F2F2EE;
+  --muted:rgba(242,242,238,.38);--muted2:rgba(242,242,238,.14);
+  --green:#00E676;--green-d:#00C060;--red:#FF3D57;
+  --amber:#FFB300;--blue:#2979FF;--purple:#B388FF;
+  --mono:'JetBrains Mono',monospace;--body:'Outfit',sans-serif;
 }
-
 html,body{
-  font-family:var(--body);
-  background:var(--black);
-  color:var(--white);
-  min-height:100vh;
-  max-width:430px;
-  margin:0 auto;
-  overflow-x:hidden;
-  -webkit-font-smoothing:antialiased;
+  font-family:var(--body);background:var(--bg);color:var(--white);
+  min-height:100vh;max-width:480px;margin:0 auto;
+  overflow-x:hidden;-webkit-font-smoothing:antialiased;
 }
 
-/* ═══════════════════════════════════════
-   SCREENS
-═══════════════════════════════════════ */
-.screen{display:none;min-height:100vh;flex-direction:column}
+/* ── SCREENS ─────────────────────── */
+.screen{display:none;flex-direction:column;min-height:100vh}
 .screen.active{display:flex}
 
-/* ═══════════════════════════════════════
-   OVERLAYS
-═══════════════════════════════════════ */
-.loader{
-  display:none;position:fixed;inset:0;
-  background:rgba(13,13,13,.9);
-  backdrop-filter:blur(12px);
-  z-index:999;align-items:center;
-  justify-content:center;flex-direction:column;gap:16px;
-}
+/* ── LOADER ──────────────────────── */
+.loader{display:none;position:fixed;inset:0;background:rgba(13,13,13,.9);
+  backdrop-filter:blur(12px);z-index:999;
+  align-items:center;justify-content:center;flex-direction:column;gap:14px}
 .loader.show{display:flex}
-.spin{
-  width:32px;height:32px;
-  border:2px solid var(--line);
-  border-top-color:var(--green);
-  border-radius:50%;
-  animation:spin .6s linear infinite;
-}
+.spin{width:30px;height:30px;border:2px solid var(--line);
+  border-top-color:var(--green);border-radius:50%;animation:spin .6s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.load-txt{
-  font-family:var(--mono);font-size:.72rem;
-  color:var(--muted);letter-spacing:.5px;
-}
+.load-txt{font-family:var(--mono);font-size:.72rem;color:var(--muted)}
 
-.toast{
-  position:fixed;top:20px;left:50%;
-  transform:translateX(-50%) translateY(-90px);
-  padding:10px 20px;border-radius:100px;
+/* ── TOAST ───────────────────────── */
+.toast{position:fixed;top:18px;left:50%;
+  transform:translateX(-50%) translateY(-80px);
+  padding:9px 18px;border-radius:100px;
   font-family:var(--mono);font-size:.75rem;font-weight:500;
-  z-index:998;transition:transform .3s cubic-bezier(.16,1,.3,1);
-  white-space:nowrap;letter-spacing:.3px;
-}
+  z-index:998;transition:transform .28s cubic-bezier(.16,1,.3,1);white-space:nowrap}
 .toast.show{transform:translateX(-50%) translateY(0)}
-.toast.success{background:var(--green);color:#000}
-.toast.error  {background:var(--red);color:#fff}
-.toast.info   {background:var(--blue);color:#fff}
-.toast.warn   {background:var(--amber);color:#000}
+.toast.s{background:var(--green);color:#000}
+.toast.e{background:var(--red);color:#fff}
+.toast.i{background:var(--blue);color:#fff}
+.toast.w{background:var(--amber);color:#000}
 
-.offline-pill{
-  display:none;position:fixed;bottom:90px;left:50%;
-  transform:translateX(-50%);
-  background:var(--amber);color:#000;
+/* ── OFFLINE ─────────────────────── */
+.offline-bar{display:none;background:var(--amber);color:#000;
   font-family:var(--mono);font-size:.68rem;font-weight:700;
-  padding:6px 16px;border-radius:100px;z-index:50;
-  letter-spacing:.3px;
-}
-body.offline .offline-pill{display:block}
+  text-align:center;padding:5px}
+body.offline .offline-bar{display:block}
 
-/* ═══════════════════════════════════════
+/* ══════════════════════════════════
    LOGIN
-═══════════════════════════════════════ */
-#loginScreen{
-  background:var(--black);
-  align-items:center;justify-content:center;
-  padding:40px 32px;
-  position:relative;
+══════════════════════════════════ */
+#login{
+  background:var(--bg);align-items:center;
+  justify-content:center;padding:40px 28px;position:relative;
 }
-
-/* Subtle grid bg */
-#loginScreen::before{
+#login::before{
   content:'';position:absolute;inset:0;
   background-image:
-    linear-gradient(rgba(0,230,118,.03) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(0,230,118,.03) 1px,transparent 1px);
-  background-size:32px 32px;
-  pointer-events:none;
+    linear-gradient(rgba(0,230,118,.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,230,118,.04) 1px,transparent 1px);
+  background-size:30px 30px;pointer-events:none;
 }
-/* Green glow */
-#loginScreen::after{
-  content:'';position:absolute;
-  width:280px;height:280px;
-  background:radial-gradient(circle,rgba(0,230,118,.08),transparent 70%);
-  top:30%;left:50%;transform:translate(-50%,-50%);
-  pointer-events:none;
+#login::after{
+  content:'';position:absolute;width:260px;height:260px;
+  background:radial-gradient(circle,rgba(0,230,118,.09),transparent 70%);
+  top:30%;left:50%;transform:translate(-50%,-50%);pointer-events:none;
 }
+.login-inner{position:relative;z-index:2;width:100%;max-width:300px;
+  display:flex;flex-direction:column;align-items:center}
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.logo-mark{width:34px;height:34px;background:var(--green);border-radius:9px;
+  display:flex;align-items:center;justify-content:center}
+.logo-mark svg{width:18px;height:18px}
+.logo-name{font-size:1.5rem;font-weight:800;letter-spacing:-.5px}
+.logo-sub{font-family:var(--mono);font-size:.62rem;color:var(--muted);
+  letter-spacing:3px;text-transform:uppercase;margin-bottom:48px}
+.pin-lbl{font-family:var(--mono);font-size:.62rem;color:var(--muted);
+  letter-spacing:2px;text-transform:uppercase;margin-bottom:18px}
+.pin-dots{display:flex;gap:14px;margin-bottom:36px}
+.pin-dot{width:11px;height:11px;border-radius:50%;border:1.5px solid var(--muted2);transition:all .2s}
+.pin-dot.on{background:var(--green);border-color:var(--green);box-shadow:0 0 12px rgba(0,230,118,.5)}
+.kpad{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;width:100%}
+.k{aspect-ratio:1;background:var(--surface);border:1px solid var(--line);
+  border-radius:14px;color:var(--white);font-family:var(--body);
+  font-size:1.4rem;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all .12s}
+.k:active{background:var(--card2);transform:scale(.91)}
+.k.del{background:transparent;color:var(--muted);font-size:.9rem;border-color:transparent}
+.k.empty{pointer-events:none;background:transparent;border-color:transparent}
+.pin-err{font-family:var(--mono);font-size:.72rem;color:var(--red);
+  text-align:center;margin-top:18px;min-height:16px}
 
-.login-wrap{
-  position:relative;z-index:2;
-  width:100%;max-width:320px;
-  display:flex;flex-direction:column;align-items:center;
+/* ══════════════════════════════════
+   JOB SCREEN — HEADER
+══════════════════════════════════ */
+#jobs{background:var(--bg)}
+.app-hdr{
+  padding:14px 16px 10px;
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:50;
+  background:rgba(13,13,13,.94);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--line);
 }
+.app-logo{display:flex;align-items:center;gap:9px}
+.app-logo-mark{width:26px;height:26px;background:var(--green);border-radius:7px;
+  display:flex;align-items:center;justify-content:center}
+.app-logo-mark svg{width:14px;height:14px}
+.app-logo-name{font-size:.9rem;font-weight:800}
+.app-meta{text-align:right}
+.app-op{font-size:.85rem;font-weight:700}
+.app-date{font-family:var(--mono);font-size:.6rem;color:var(--muted);margin-top:1px}
 
-.brand{
-  display:flex;align-items:center;gap:10px;
-  margin-bottom:6px;
-}
-.brand-mark{
-  width:36px;height:36px;
-  background:var(--green);
-  border-radius:10px;
-  display:flex;align-items:center;justify-content:center;
-}
-.brand-mark svg{width:20px;height:20px}
-.brand-name{
-  font-size:1.6rem;font-weight:800;
-  color:var(--white);letter-spacing:-1px;
-}
-.brand-sub{
-  font-family:var(--mono);font-size:.65rem;
-  color:var(--muted);letter-spacing:3px;
-  text-transform:uppercase;margin-bottom:52px;
-}
+/* Progress */
+.prog-track{height:2px;background:var(--line)}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--green),#00BCD4);transition:width .7s ease}
 
-.pin-label{
-  font-family:var(--mono);font-size:.65rem;
-  color:var(--muted);letter-spacing:2px;
-  text-transform:uppercase;margin-bottom:20px;
+/* ── FILTER TABS ──────────────────── */
+.filter-row{
+  display:flex;gap:0;background:var(--surface);
+  border-bottom:1px solid var(--line);overflow-x:auto;
+  scrollbar-width:none;
 }
-.pin-row{
-  display:flex;gap:16px;margin-bottom:40px;
+.filter-row::-webkit-scrollbar{display:none}
+.ftab{
+  flex:1;min-width:60px;padding:10px 4px;text-align:center;
+  font-family:var(--mono);font-size:.65rem;font-weight:600;
+  color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;
+  transition:all .2s;white-space:nowrap;letter-spacing:.3px;
 }
-.pin-dot{
-  width:12px;height:12px;border-radius:50%;
-  border:1.5px solid rgba(255,255,255,.2);
+.ftab.on{color:var(--green);border-bottom-color:var(--green)}
+.ftab-count{
+  display:inline-flex;align-items:center;justify-content:center;
+  background:var(--card2);color:var(--muted);
+  font-size:.6rem;padding:1px 5px;border-radius:100px;margin-left:4px;
+}
+.ftab.on .ftab-count{background:rgba(0,230,118,.18);color:var(--green)}
+
+/* ── STATS BAR ─────────────────────── */
+.stats-bar{
+  display:grid;grid-template-columns:repeat(5,1fr);
+  background:var(--surface);border-bottom:1px solid var(--line);
+}
+.sbar{padding:9px 4px;text-align:center;border-right:1px solid var(--line)}
+.sbar:last-child{border-right:none}
+.sbar-n{font-size:1.2rem;font-weight:900;line-height:1}
+.sbar-n.g{color:var(--green)}.sbar-n.r{color:var(--red)}
+.sbar-n.a{color:var(--amber)}.sbar-n.b{color:var(--blue)}.sbar-n.p{color:var(--purple)}
+.sbar-k{font-family:var(--mono);font-size:.55rem;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+
+/* ── JOB LIST ─────────────────────── */
+.job-list{flex:1;padding:10px 10px 100px;display:flex;flex-direction:column;gap:8px;
+  overflow-y:auto;-webkit-overflow-scrolling:touch}
+
+/* Street group */
+.street-group{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.street-hdr{
+  padding:12px 14px 10px;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--line);cursor:pointer;
+}
+.street-name{font-size:.9rem;font-weight:800;letter-spacing:-.2px}
+.street-pc{font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:2px}
+.street-meta{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.street-prog{font-family:var(--mono);font-size:.65rem;color:var(--muted)}
+.street-prog.done{color:var(--green)}
+.chevron{font-size:.8rem;color:var(--muted);transition:transform .25s}
+.street-group.collapsed .chevron{transform:rotate(-90deg)}
+.street-group.collapsed .street-body{display:none}
+
+/* Mark all done btn */
+.mark-all-btn{
+  width:100%;padding:10px;background:rgba(0,230,118,.08);
+  border:none;border-bottom:1px solid var(--line);
+  font-family:var(--body);font-weight:700;font-size:.8rem;
+  color:var(--green);cursor:pointer;display:flex;
+  align-items:center;justify-content:center;gap:8px;transition:all .2s;
+}
+.mark-all-btn:active{background:rgba(0,230,118,.18)}
+.mark-all-btn.done-all{background:transparent;color:var(--muted)}
+
+/* Maps btn on street */
+.maps-btn{
+  padding:8px 12px;background:rgba(41,121,255,.1);border:none;
+  border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:.65rem;color:var(--blue);
+  cursor:pointer;display:flex;align-items:center;gap:7px;width:100%;
   transition:all .2s;
 }
-.pin-dot.on{
-  background:var(--green);
-  border-color:var(--green);
-  box-shadow:0 0 14px rgba(0,230,118,.5);
-}
+.maps-btn:active{background:rgba(41,121,255,.2)}
 
-/* Keypad */
-.keypad{
-  display:grid;grid-template-columns:repeat(3,1fr);
-  gap:10px;width:100%;
+/* Individual job row */
+.job-row{
+  padding:11px 14px;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:10px;
+  transition:background .2s;
 }
-.k{
-  aspect-ratio:1;
-  background:var(--surface);
-  border:1px solid var(--line);
-  border-radius:16px;
-  color:var(--white);
-  font-family:var(--body);font-size:1.5rem;font-weight:700;
-  cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  transition:all .12s;
-  position:relative;overflow:hidden;
-}
-.k:active{
-  background:var(--card-2);
-  transform:scale(.93);
-}
-.k.del{
-  background:transparent;
-  color:var(--muted);font-size:.95rem;
-  border-color:transparent;
-}
-.k.empty{pointer-events:none;background:transparent;border:transparent}
+.job-row:last-child{border-bottom:none}
+.job-row.done-row{opacity:.45}
+.job-row.missed-row{opacity:.45}
 
-.pin-err{
-  font-family:var(--mono);font-size:.72rem;
-  color:var(--red);text-align:center;
-  margin-top:20px;min-height:16px;
+.job-num{
+  font-family:var(--mono);font-size:1.1rem;font-weight:700;
+  color:var(--white);min-width:36px;flex-shrink:0;
+}
+.job-info{flex:1;min-width:0}
+.job-tags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:5px}
+.tag{
+  padding:2px 7px;border-radius:100px;
+  font-family:var(--mono);font-size:.6rem;font-weight:600;
   letter-spacing:.3px;
 }
+.tag-grey  {background:rgba(200,200,200,.12);color:#aaa}
+.tag-green {background:rgba(0,230,118,.12);color:var(--green)}
+.tag-brown {background:rgba(139,90,43,.25);color:#d4924a}
+.tag-blue  {background:rgba(41,121,255,.12);color:var(--blue)}
+.tag-dd    {background:rgba(179,136,255,.12);color:var(--purple)}
+.tag-paypal{background:rgba(0,156,222,.12);color:#009CDE}
+.tag-cash  {background:rgba(0,230,118,.1);color:var(--green)}
+.tag-wb    {background:rgba(255,255,255,.06);color:var(--muted)}
+.tag-eco   {background:rgba(0,200,100,.08);color:#00C864}
 
-/* ═══════════════════════════════════════
-   JOB SCREEN
-═══════════════════════════════════════ */
-#jobScreen{background:var(--black)}
-
-/* Header */
-.hdr{
-  padding:16px 18px 12px;
-  display:flex;align-items:center;justify-content:space-between;
-  position:sticky;top:0;z-index:40;
-  background:rgba(13,13,13,.92);
-  backdrop-filter:blur(20px);
-  border-bottom:1px solid var(--line);
-}
-.hdr-left{display:flex;align-items:center;gap:10px}
-.hdr-mark{
-  width:28px;height:28px;background:var(--green);
-  border-radius:8px;display:flex;align-items:center;justify-content:center;
-  flex-shrink:0;
-}
-.hdr-mark svg{width:16px;height:16px}
-.hdr-name{
-  font-size:.95rem;font-weight:800;color:var(--white);
-  letter-spacing:-.3px;
-}
-.hdr-right{text-align:right}
-.hdr-op{
-  font-size:.85rem;font-weight:700;color:var(--white);
-}
-.hdr-date{
-  font-family:var(--mono);font-size:.62rem;
-  color:var(--muted);margin-top:1px;
+.job-note-txt{
+  font-family:var(--mono);font-size:.65rem;color:var(--amber);
+  margin-top:3px;line-height:1.4;
 }
 
-/* Progress bar */
-.prog-track{
-  height:2px;background:var(--line);
+.job-btns{display:flex;gap:5px;flex-shrink:0}
+.jb{
+  width:40px;height:40px;border:none;border-radius:10px;
+  font-size:.75rem;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;transition:all .15s;font-weight:700;
 }
-.prog-fill{
-  height:100%;
-  background:linear-gradient(90deg,var(--green),#00BCD4);
-  transition:width .8s cubic-bezier(.16,1,.3,1);
-}
+.jb:active{transform:scale(.88)}
+.jb-done  {background:rgba(0,230,118,.1);color:var(--green)}
+.jb-miss  {background:rgba(255,61,87,.1);color:var(--red)}
+.jb-done.on  {background:var(--green);color:#000}
+.jb-miss.on  {background:var(--red);color:#fff}
+/* Tap Return: hold for 0.5s */
+.jb-ret   {background:rgba(255,179,0,.1);color:var(--amber)}
+.jb-ret.on{background:var(--amber);color:#000}
 
-/* Stats */
-.stats{
-  display:grid;grid-template-columns:repeat(4,1fr);
-  background:var(--surface);
-  border-bottom:1px solid var(--line);
-}
-.stat{
-  padding:12px 8px;text-align:center;
-  border-right:1px solid var(--line);
-}
-.stat:last-child{border-right:none}
-.stat-n{
-  font-family:var(--body);font-size:1.5rem;font-weight:800;
-  line-height:1;color:var(--white);
-}
-.stat-n.g{color:var(--green)}
-.stat-n.r{color:var(--red)}
-.stat-n.a{color:var(--amber)}
-.stat-k{
-  font-family:var(--mono);font-size:.57rem;
-  color:var(--muted);text-transform:uppercase;
-  letter-spacing:.5px;margin-top:3px;
-}
-
-/* Job list */
-.job-list{
-  flex:1;padding:12px 12px 100px;
-  display:flex;flex-direction:column;gap:8px;
-  overflow-y:auto;-webkit-overflow-scrolling:touch;
-}
-
-.section-lbl{
-  font-family:var(--mono);font-size:.6rem;
-  color:var(--muted);text-transform:uppercase;
-  letter-spacing:1.5px;padding:8px 4px 2px;
-}
-
-/* Job card */
-.job{
-  background:var(--card);
-  border:1px solid var(--line);
-  border-radius:16px;
-  overflow:hidden;
-  transition:opacity .4s,transform .3s;
-  animation:cardIn .3s cubic-bezier(.16,1,.3,1) both;
-}
-@keyframes cardIn{
-  from{opacity:0;transform:translateY(12px)}
-  to{opacity:1;transform:translateY(0)}
-}
-.job.done,.job.missed{opacity:.5}
-
-/* Left accent stripe */
-.job-inner{
-  display:flex;position:relative;
-}
-.job-stripe{
-  width:3px;flex-shrink:0;
-  background:var(--line);
-  transition:background .3s;
-}
-.job.done   .job-stripe{background:var(--green)}
-.job.missed .job-stripe{background:var(--red)}
-.job.return .job-stripe{background:var(--amber)}
-
-.job-body{flex:1;padding:14px 14px 12px}
-
-/* Top row */
-.job-top{
-  display:flex;align-items:flex-start;
-  justify-content:space-between;margin-bottom:6px;
-}
-.job-name{
-  font-size:.65rem;font-weight:600;
-  color:var(--muted);letter-spacing:1px;
-  text-transform:uppercase;font-family:var(--mono);
-}
-.job-addr{
-  font-family:var(--body);font-size:.95rem;font-weight:700;
-  color:var(--white);margin-top:3px;line-height:1.4;
-  letter-spacing:-.2px;
-}
-.job-price{
-  font-family:var(--body);font-size:1rem;font-weight:800;
-  color:var(--green);margin-left:12px;white-space:nowrap;
-  flex-shrink:0;
-}
-
-/* Note */
-.job-note{
-  background:rgba(255,179,0,.08);
-  border:1px solid rgba(255,179,0,.2);
-  border-radius:8px;padding:6px 10px;
-  font-family:var(--mono);font-size:.68rem;
-  color:var(--amber);margin:8px 0;
-  display:flex;gap:6px;align-items:flex-start;
-}
-
-/* Payment badge */
-.job-badge{
-  display:inline-flex;align-items:center;gap:5px;
-  padding:3px 9px;border-radius:100px;
-  font-family:var(--mono);font-size:.62rem;font-weight:500;
-  background:var(--card-2);color:var(--muted);
-  margin-bottom:10px;letter-spacing:.3px;
-}
-.job-badge.dd{
-  background:rgba(41,121,255,.12);
-  color:rgba(41,121,255,.9);
-}
-
-/* Action buttons */
-.job-acts{
-  display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;
-}
-.jbtn{
-  padding:9px 4px;border:none;border-radius:10px;
-  font-family:var(--body);font-weight:700;font-size:.78rem;
-  cursor:pointer;display:flex;align-items:center;
-  justify-content:center;gap:5px;
-  transition:all .15s;letter-spacing:-.1px;
-}
-.jbtn:active{transform:scale(.92)}
-.jbtn-done  {background:rgba(0,230,118,.1);color:var(--green)}
-.jbtn-miss  {background:rgba(255,61,87,.1);color:var(--red)}
-.jbtn-ret   {background:rgba(255,179,0,.1);color:var(--amber)}
-.jbtn-done.on  {background:var(--green);color:#000}
-.jbtn-miss.on  {background:var(--red);color:#fff}
-.jbtn-ret.on   {background:var(--amber);color:#000}
-
-/* Done/missed labels */
-.done-lbl,.miss-lbl,.ret-lbl{
-  display:none;
-  font-family:var(--mono);font-size:.7rem;font-weight:500;
-  text-align:center;padding:6px 0 2px;letter-spacing:.3px;
-}
-.job.done   .done-lbl{display:block;color:var(--green)}
-.job.missed .miss-lbl{display:block;color:var(--red)}
-.job.return .ret-lbl {display:block;color:var(--amber)}
+/* maps micro btn on individual row */
+.jb-map{background:rgba(41,121,255,.1);color:var(--blue)}
 
 /* Empty state */
-.empty{
-  flex:1;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;
-  padding:60px 24px;text-align:center;
-}
-.empty-icon{
-  width:64px;height:64px;
-  background:var(--surface);border-radius:20px;
-  display:flex;align-items:center;justify-content:center;
-  margin-bottom:20px;
-  font-size:2rem;
-}
-.empty h3{
-  font-size:1.1rem;font-weight:700;
-  color:var(--muted);margin-bottom:6px;
-}
-.empty p{
-  font-family:var(--mono);font-size:.75rem;
-  color:var(--muted2);
-}
+.empty-state{flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;padding:60px 20px;text-align:center}
+.empty-icon{font-size:3rem;margin-bottom:14px}
+.empty-title{font-size:1rem;font-weight:700;color:var(--muted);margin-bottom:6px}
+.empty-sub{font-family:var(--mono);font-size:.72rem;color:var(--muted2)}
 
-/* Footer */
-.footer{
+/* ── FOOTER ──────────────────────── */
+.app-foot{
   position:fixed;bottom:0;left:50%;transform:translateX(-50%);
-  width:100%;max-width:430px;
-  padding:10px 14px 28px;
-  background:rgba(13,13,13,.95);
-  backdrop-filter:blur(20px);
+  width:100%;max-width:480px;padding:9px 12px 26px;
+  background:rgba(13,13,13,.96);backdrop-filter:blur(20px);
   border-top:1px solid var(--line);
-  display:grid;grid-template-columns:1fr auto;gap:8px;
-  z-index:40;
+  display:grid;grid-template-columns:1fr auto auto;gap:8px;z-index:50;
 }
 .sync-btn{
-  background:var(--green);color:#000;
-  border:none;border-radius:12px;
-  padding:13px 20px;
-  font-family:var(--body);font-weight:800;font-size:.88rem;
-  cursor:pointer;display:flex;align-items:center;
-  justify-content:center;gap:8px;
-  transition:all .2s;letter-spacing:-.2px;
-}
-.sync-btn:active{transform:scale(.96);background:var(--green-d)}
-.sync-cnt{
-  background:#000;color:var(--green);
-  font-family:var(--mono);font-size:.62rem;font-weight:700;
-  padding:1px 7px;border-radius:100px;
-  display:none;
-}
-.logout-btn{
-  background:var(--surface);
-  border:1px solid var(--line);
-  color:var(--muted);border-radius:12px;
-  padding:13px 16px;font-size:.8rem;
-  cursor:pointer;font-family:var(--body);font-weight:600;
+  background:var(--green);color:#000;border:none;border-radius:11px;
+  padding:12px;font-family:var(--body);font-weight:800;font-size:.85rem;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;
   transition:all .2s;
 }
-.logout-btn:active{transform:scale(.93)}
+.sync-btn:active{transform:scale(.95);background:var(--green-d)}
+.sync-cnt{background:#000;color:var(--green);font-family:var(--mono);
+  font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:100px;display:none}
+.whats-left-btn{
+  background:var(--surface);border:1px solid var(--line);color:var(--muted);
+  border-radius:11px;padding:12px 14px;font-family:var(--body);
+  font-weight:700;font-size:.75rem;cursor:pointer;white-space:nowrap;transition:all .2s;
+}
+.whats-left-btn.active{border-color:var(--amber);color:var(--amber);
+  background:rgba(255,179,0,.08)}
+.logout-btn{background:var(--surface);border:1px solid var(--line);
+  color:var(--muted);border-radius:11px;padding:12px 14px;
+  font-size:.8rem;cursor:pointer;transition:all .2s}
 
-/* ═══════════════════════════════════════
-   PAYMENT MODAL
-═══════════════════════════════════════ */
-.modal-bg{
-  display:none;position:fixed;inset:0;
-  background:rgba(0,0,0,.7);
-  backdrop-filter:blur(8px);
-  z-index:200;align-items:flex-end;
-}
+/* ── PAYMENT MODAL ───────────────── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);
+  backdrop-filter:blur(8px);z-index:200;align-items:flex-end}
 .modal-bg.open{display:flex}
-.modal{
-  background:var(--surface);
-  border-radius:24px 24px 0 0;
-  border:1px solid var(--line);
-  border-bottom:none;
-  padding:8px 24px 48px;
-  width:100%;max-width:430px;
-  margin:0 auto;
-  animation:slideUp .3s cubic-bezier(.16,1,.3,1);
-}
-@keyframes slideUp{
-  from{transform:translateY(100%)}
-  to{transform:translateY(0)}
-}
-.modal-handle{
-  width:36px;height:4px;
-  background:var(--line);border-radius:2px;
-  margin:12px auto 24px;
-}
-.modal-title{
-  font-size:1.3rem;font-weight:800;
-  color:var(--white);margin-bottom:3px;
-  letter-spacing:-.3px;
-}
-.modal-cust{
-  font-family:var(--mono);font-size:.75rem;
-  color:var(--muted);margin-bottom:20px;
-}
-.modal-amt{
-  background:var(--card);
-  border:1px solid var(--line);
-  border-radius:16px;
-  padding:20px;text-align:center;
-  font-size:2.6rem;font-weight:900;
-  color:var(--green);margin-bottom:18px;
-  letter-spacing:-1px;
-}
-.modal-methods{
-  display:grid;grid-template-columns:1fr 1fr;gap:8px;
-  margin-bottom:16px;
-}
-.meth{
-  padding:14px;border:1.5px solid var(--line);
-  border-radius:12px;background:var(--card);
-  font-family:var(--body);font-weight:700;font-size:.88rem;
-  cursor:pointer;display:flex;align-items:center;
-  justify-content:center;gap:8px;color:var(--muted);
-  transition:all .2s;
-}
-.meth.sel{
-  border-color:var(--green);
-  background:rgba(0,230,118,.08);
-  color:var(--green);
-}
-.modal-confirm{
-  width:100%;padding:15px;border:none;
-  border-radius:12px;
-  background:var(--green);color:#000;
-  font-family:var(--body);font-weight:800;font-size:.95rem;
-  cursor:pointer;margin-bottom:10px;
-  transition:all .2s;letter-spacing:-.2px;
-}
-.modal-confirm:active{transform:scale(.97);background:var(--green-d)}
-.modal-skip{
-  width:100%;padding:10px;background:transparent;
-  border:none;font-family:var(--mono);font-size:.75rem;
-  color:var(--muted);cursor:pointer;letter-spacing:.3px;
-}
+.modal{background:var(--surface);border-radius:22px 22px 0 0;
+  border:1px solid var(--line);border-bottom:none;
+  padding:6px 22px 44px;width:100%;max-width:480px;margin:0 auto;
+  animation:slideUp .28s cubic-bezier(.16,1,.3,1)}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-handle{width:36px;height:4px;background:var(--line);
+  border-radius:2px;margin:12px auto 22px}
+.modal-title{font-size:1.2rem;font-weight:800;margin-bottom:3px;letter-spacing:-.3px}
+.modal-sub{font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-bottom:18px}
+.modal-amt{background:var(--card);border:1px solid var(--line);border-radius:14px;
+  padding:18px;text-align:center;font-size:2.4rem;font-weight:900;
+  color:var(--green);margin-bottom:16px;letter-spacing:-1px}
+.modal-meths{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.meth{padding:13px;border:1.5px solid var(--line);border-radius:11px;
+  background:var(--card);font-family:var(--body);font-weight:700;
+  font-size:.85rem;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;gap:7px;color:var(--muted);transition:all .18s}
+.meth.sel{border-color:var(--green);background:rgba(0,230,118,.07);color:var(--green)}
+.modal-confirm{width:100%;padding:14px;border:none;border-radius:11px;
+  background:var(--green);color:#000;font-family:var(--body);
+  font-weight:800;font-size:.95rem;cursor:pointer;margin-bottom:9px;transition:all .2s}
+.modal-confirm:active{transform:scale(.97)}
+.modal-skip{width:100%;padding:9px;background:transparent;border:none;
+  font-family:var(--mono);font-size:.72rem;color:var(--muted);cursor:pointer}
 </style>
 </head>
 <body>
 
-<div class="offline-pill">⚡ Offline — changes queued</div>
-<div class="loader" id="loader">
-  <div class="spin"></div>
-  <div class="load-txt" id="loaderTxt">Loading…</div>
-</div>
+<div class="offline-bar">⚡ Offline — changes queued</div>
+<div class="loader" id="loader"><div class="spin"></div><div class="load-txt" id="loaderTxt">Loading…</div></div>
 <div class="toast" id="toast"></div>
 
 <!-- PAYMENT MODAL -->
@@ -546,186 +330,151 @@ body.offline .offline-pill{display:block}
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-title">Record Payment</div>
-    <div class="modal-cust" id="payName"></div>
+    <div class="modal-sub" id="payAddr"></div>
     <div class="modal-amt" id="payAmt">£0.00</div>
-    <div class="modal-methods">
-      <button class="meth sel" id="mCash" onclick="pickMethod('cash')">💵 Cash</button>
-      <button class="meth"     id="mCard" onclick="pickMethod('card')">💳 Card</button>
+    <div class="modal-meths">
+      <button class="meth sel" id="mCash" onclick="pickMeth('cash')">💵 Cash</button>
+      <button class="meth"     id="mCard" onclick="pickMeth('card')">💳 Card</button>
     </div>
     <button class="modal-confirm" onclick="confirmPay()">✓ Confirm Payment</button>
     <button class="modal-skip"    onclick="skipPay()">No payment — skip</button>
   </div>
 </div>
 
-<!-- ════ LOGIN ════ -->
-<div class="screen active" id="loginScreen">
-  <div class="login-wrap">
-    <div class="brand">
-      <div class="brand-mark">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round">
-          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-          <path d="M2 17l10 5 10-5"/>
-          <path d="M2 12l10 5 10-5"/>
-        </svg>
-      </div>
-      <div class="brand-name">RoundSync</div>
+<!-- ══ LOGIN ══ -->
+<div class="screen active" id="login">
+  <div class="login-inner">
+    <div class="logo">
+      <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>
+      <div class="logo-name">RoundSync</div>
     </div>
-    <div class="brand-sub">Field Operative</div>
-
-    <div class="pin-label">Enter your PIN</div>
-    <div class="pin-row">
-      <div class="pin-dot" id="d0"></div>
-      <div class="pin-dot" id="d1"></div>
-      <div class="pin-dot" id="d2"></div>
-      <div class="pin-dot" id="d3"></div>
+    <div class="logo-sub">Field Operative</div>
+    <div class="pin-lbl">Enter your PIN</div>
+    <div class="pin-dots">
+      <div class="pin-dot" id="d0"></div><div class="pin-dot" id="d1"></div>
+      <div class="pin-dot" id="d2"></div><div class="pin-dot" id="d3"></div>
     </div>
-
-    <div class="keypad">
-      <button class="k" onclick="kp('1')">1</button>
-      <button class="k" onclick="kp('2')">2</button>
-      <button class="k" onclick="kp('3')">3</button>
-      <button class="k" onclick="kp('4')">4</button>
-      <button class="k" onclick="kp('5')">5</button>
-      <button class="k" onclick="kp('6')">6</button>
-      <button class="k" onclick="kp('7')">7</button>
-      <button class="k" onclick="kp('8')">8</button>
-      <button class="k" onclick="kp('9')">9</button>
-      <button class="k empty"></button>
-      <button class="k" onclick="kp('0')">0</button>
-      <button class="k del" onclick="kdel()">⌫</button>
+    <div class="kpad">
+      <button class="k" onclick="kp('1')">1</button><button class="k" onclick="kp('2')">2</button><button class="k" onclick="kp('3')">3</button>
+      <button class="k" onclick="kp('4')">4</button><button class="k" onclick="kp('5')">5</button><button class="k" onclick="kp('6')">6</button>
+      <button class="k" onclick="kp('7')">7</button><button class="k" onclick="kp('8')">8</button><button class="k" onclick="kp('9')">9</button>
+      <button class="k empty"></button><button class="k" onclick="kp('0')">0</button><button class="k del" onclick="kdel()">⌫</button>
     </div>
     <div class="pin-err" id="pinErr"></div>
   </div>
 </div>
 
-<!-- ════ JOBS ════ -->
-<div class="screen" id="jobScreen">
-  <div class="hdr">
-    <div class="hdr-left">
-      <div class="hdr-mark">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round">
-          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-          <path d="M2 17l10 5 10-5"/>
-          <path d="M2 12l10 5 10-5"/>
-        </svg>
-      </div>
-      <div class="hdr-name">RoundSync</div>
+<!-- ══ JOBS ══ -->
+<div class="screen" id="jobs">
+  <div class="app-hdr">
+    <div class="app-logo">
+      <div class="app-logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>
+      <div class="app-logo-name">RoundSync</div>
     </div>
-    <div class="hdr-right">
-      <div class="hdr-op" id="hdrOp">—</div>
-      <div class="hdr-date" id="hdrDate">—</div>
+    <div class="app-meta">
+      <div class="app-op" id="hdrOp">—</div>
+      <div class="app-date" id="hdrDate">—</div>
     </div>
   </div>
 
   <div class="prog-track"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
 
-  <div class="stats">
-    <div class="stat"><div class="stat-n g" id="sDone">0</div><div class="stat-k">Done</div></div>
-    <div class="stat"><div class="stat-n"   id="sLeft">0</div><div class="stat-k">Left</div></div>
-    <div class="stat"><div class="stat-n r" id="sMiss">0</div><div class="stat-k">Missed</div></div>
-    <div class="stat"><div class="stat-n a" id="sCash">£0</div><div class="stat-k">Cash In</div></div>
+  <div class="filter-row">
+    <div class="ftab on" id="ftAll"   onclick="setFilter('all',this)">All <span class="ftab-count" id="fcAll">0</span></div>
+    <div class="ftab"    id="ftDue"   onclick="setFilter('due',this)">To Do <span class="ftab-count" id="fcDue">0</span></div>
+    <div class="ftab"    id="ftDone"  onclick="setFilter('done',this)">Done <span class="ftab-count" id="fcDone">0</span></div>
+    <div class="ftab"    id="ftMiss"  onclick="setFilter('missed',this)">Missed <span class="ftab-count" id="fcMiss">0</span></div>
+    <div class="ftab"    id="ftRet"   onclick="setFilter('return',this)">Return <span class="ftab-count" id="fcRet">0</span></div>
+  </div>
+
+  <div class="stats-bar">
+    <div class="sbar"><div class="sbar-n g" id="sDone">0</div><div class="sbar-k">Done</div></div>
+    <div class="sbar"><div class="sbar-n"   id="sLeft">0</div><div class="sbar-k">Left</div></div>
+    <div class="sbar"><div class="sbar-n r" id="sMiss">0</div><div class="sbar-k">Missed</div></div>
+    <div class="sbar"><div class="sbar-n a" id="sRet">0</div><div class="sbar-k">Return</div></div>
+    <div class="sbar"><div class="sbar-n p" id="sCash">£0</div><div class="sbar-k">Cash In</div></div>
   </div>
 
   <div class="job-list" id="jobList"></div>
 
-  <div class="footer">
+  <div class="app-foot">
     <button class="sync-btn" onclick="doSync()">
-      ↑ Sync
-      <span class="sync-cnt" id="syncCnt">0</span>
+      ↑ Sync <span class="sync-cnt" id="syncCnt">0</span>
     </button>
+    <button class="whats-left-btn" id="whatsLeftBtn" onclick="toggleWhatsLeft()">👁 Left</button>
     <button class="logout-btn" onclick="doLogout()">⏻</button>
   </div>
 </div>
 
 <script>
-// ═══════════════════════════════════════
+// ══════════════════════════════════════
 // CONFIG
-// ═══════════════════════════════════════
+// ══════════════════════════════════════
 const SB_URL = 'https://bqyvofnljjnffarkwzio.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxeXZvZm5sampuZmZhcmt3emlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjI1MjMsImV4cCI6MjA5MDc5ODUyM30.MsOpuhzSLIU79Xu4Dn9rBC7yqyYDm0vH3LkLmqqMWWU';
 const DEMO = false;
 
-const DEMO_OP = {id:'demo-pete', name:'Pete', company_id:'demo-co'};
-const DEMO_JOBS = [
-  {id:'j1',status:'pending',customer:{name:'Mrs Johnson',   address:'14 Acacia Ave, Birkenhead', notes:'',                         price:4.00,payment_method:'cash'}},
-  {id:'j2',status:'pending',customer:{name:'Mr Taylor',     address:'7 Elm Road, Prenton',        notes:'Side gate — blue bin only', price:4.00,payment_method:'cash'}},
-  {id:'j3',status:'pending',customer:{name:'Davies',        address:'23 Oak Street, Upton',        notes:'',                         price:4.50,payment_method:'direct_debit'}},
-  {id:'j4',status:'pending',customer:{name:'Patel',         address:'55 Maple Close, Bromborough', notes:'',                         price:4.00,payment_method:'cash'}},
-  {id:'j5',status:'pending',customer:{name:'Smith',         address:'8 Cedar Lane, Heswall',       notes:'',                         price:4.00,payment_method:'cash'}},
+// Demo data
+const D_OP = {id:'demo-pete',name:'Pete',company_id:'demo-co'};
+const D_JOBS = [
+  {id:'j1',status:'pending',address:'18 Cliff Road',postcode:'CH44 3AY',notes:'GREY bin',price:4.00,payment_method:'cash',round_name:'WB 5 FRI (B)',sort_order:1},
+  {id:'j2',status:'pending',address:'40 Cliff Road',postcode:'CH44 3AY',notes:'',price:4.00,payment_method:'direct_debit',round_name:'WB 5 FRI (B)',sort_order:2},
+  {id:'j3',status:'pending',address:'48 Cliff Road',postcode:'CH44 3AY',notes:'GREY bin | Key in flowerpot',price:4.50,payment_method:'cash',round_name:'WB 5 FRI (B)',sort_order:3},
+  {id:'j4',status:'pending',address:'7 Elm Road',postcode:'CH43 3BJ',notes:'GREEN bin',price:4.00,payment_method:'cash',round_name:'WB 5 FRI (B)',sort_order:4},
+  {id:'j5',status:'pending',address:'23 Elm Road',postcode:'CH43 3BJ',notes:'DIRECT DEBIT',price:4.00,payment_method:'direct_debit',round_name:'WB 5 FRI (B)',sort_order:5},
 ];
 
-let sb, op, jobs=[], pin='', payJob=null, payMethod='cash';
+let sb, op, jobs=[], pin='', payJob=null, payMeth='cash';
 let queue = JSON.parse(localStorage.getItem('rs_q')||'[]');
+let curFilter = 'all';
+let whatsLeftOnly = false;
 
-// ═══════════════════════════════════════
+// ══════════════════════════════════════
 // INIT
-// ═══════════════════════════════════════
+// ══════════════════════════════════════
 document.addEventListener('DOMContentLoaded',()=>{
   if(!DEMO) sb = supabase.createClient(SB_URL,SB_KEY);
   document.getElementById('hdrDate').textContent =
     new Date().toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
   window.addEventListener('online', ()=>{ document.body.classList.remove('offline'); flush(); });
-  window.addEventListener('offline',()=>  document.body.classList.add('offline'));
+  window.addEventListener('offline',()=> document.body.classList.add('offline'));
   if(!navigator.onLine) document.body.classList.add('offline');
   const saved = localStorage.getItem('rs_op');
   if(saved){ op=JSON.parse(saved); enterJobs(); }
   updateBadge();
 });
 
-// ═══════════════════════════════════════
+// ══════════════════════════════════════
 // PIN
-// ═══════════════════════════════════════
-function kp(d){
-  if(pin.length>=4) return;
-  pin+=d; dots();
-  if(pin.length===4) setTimeout(tryLogin,120);
-}
+// ══════════════════════════════════════
+function kp(d){ if(pin.length>=4)return; pin+=d; dots(); if(pin.length===4)setTimeout(tryLogin,120); }
 function kdel(){ pin=pin.slice(0,-1); dots(); document.getElementById('pinErr').textContent=''; }
-function dots(){
-  for(let i=0;i<4;i++)
-    document.getElementById('d'+i).classList.toggle('on',i<pin.length);
-}
+function dots(){ for(let i=0;i<4;i++) document.getElementById('d'+i).classList.toggle('on',i<pin.length); }
 
 async function tryLogin(){
   load('Checking PIN…');
-  if(DEMO){
-    await wait(400);
-    op=DEMO_OP; localStorage.setItem('rs_op',JSON.stringify(op));
-    hide(); enterJobs(); return;
-  }
+  if(DEMO){ await wait(400); op=D_OP; localStorage.setItem('rs_op',JSON.stringify(op)); hide(); enterJobs(); return; }
   try{
     const {data,error}=await sb.from('operatives').select('*').eq('pin',pin).eq('active',true).single();
-    if(error||!data){
-      hide();
-      document.getElementById('pinErr').textContent='Incorrect PIN — try again';
-      pin=''; dots(); return;
-    }
+    if(error||!data){ hide(); document.getElementById('pinErr').textContent='Incorrect PIN'; pin=''; dots(); return; }
     op=data; localStorage.setItem('rs_op',JSON.stringify(data));
     hide(); enterJobs();
-  }catch{
-    hide();
-    document.getElementById('pinErr').textContent='Connection error — check signal';
-    pin=''; dots();
-  }
+  }catch{ hide(); document.getElementById('pinErr').textContent='Connection error'; pin=''; dots(); }
 }
 
-// ═══════════════════════════════════════
-// JOB SCREEN
-// ═══════════════════════════════════════
+// ══════════════════════════════════════
+// JOBS SCREEN
+// ══════════════════════════════════════
 async function enterJobs(){
-  document.getElementById('loginScreen').classList.remove('active');
-  document.getElementById('jobScreen').classList.add('active');
-  document.getElementById('hdrOp').textContent = op.name;
+  document.getElementById('login').classList.remove('active');
+  document.getElementById('jobs').classList.add('active');
+  document.getElementById('hdrOp').textContent=op.name;
   await fetchJobs();
 }
 
 async function fetchJobs(){
   load("Loading today's round…");
-  if(DEMO){
-    await wait(600);
-    jobs=DEMO_JOBS.map(j=>({...j,customer:{...j.customer}}));
-    hide(); render(); return;
-  }
+  if(DEMO){ await wait(500); jobs=D_JOBS.map(j=>({...j})); hide(); render(); return; }
   try{
     const today=new Date().toISOString().split('T')[0];
     const {data,error}=await sb.from('jobs_live')
@@ -734,202 +483,313 @@ async function fetchJobs(){
       .order('sort_order',{ascending:true,nullsFirst:false})
       .order('created_at');
     if(error) throw error;
-    jobs=data||[];
-    queue.forEach(q=>{
-      const j=jobs.find(x=>x.id===q.job_id);
-      if(j){ j.status=q.status; if(q.amt){j.payment_amount=q.amt;j.payment_status='paid';} }
-    });
+    jobs=(data||[]).map(j=>({
+      ...j,
+      address: j.address||(j.customer?.address)||'',
+      postcode:j.postcode||(j.customer?.postcode)||'',
+      notes:   j.notes||(j.customer?.notes)||'',
+      price:   j.price||(j.customer?.price)||0,
+      payment_method:j.payment_method||(j.customer?.payment_method)||'cash',
+    }));
+    queue.forEach(q=>{ const j=jobs.find(x=>x.id===q.job_id); if(j){ j.status=q.status; if(q.amt)j.payment_amount=q.amt; }});
     hide(); render();
-  }catch{ hide(); toast('Could not load jobs','error'); }
+  }catch(e){ hide(); toast('Could not load jobs','e'); console.error(e); }
+}
+
+// ══════════════════════════════════════
+// RENDER — grouped by street
+// ══════════════════════════════════════
+function parseAddr(addr){
+  const s=String(addr||'').trim();
+  const m=s.match(/^(\d+[A-Za-z]?(?:\s*[-–]\s*\d+[A-Za-z]?)?|\*\d+\*|\d+\s*@\s*\w+)\s+(.+)$/);
+  if(m) return {house:m[1].trim(), street:m[2].trim()};
+  return {house:'', street:s};
+}
+
+function parseTags(job){
+  const notes=String(job.notes||'').toUpperCase();
+  const pay=String(job.payment_method||'').toLowerCase();
+  const tags=[];
+
+  // Bin colour
+  if(notes.includes('GREY'))  tags.push({cls:'tag-grey', txt:'GREY'});
+  if(notes.includes('GREEN')) tags.push({cls:'tag-green',txt:'GREEN'});
+  if(notes.includes('BROWN')) tags.push({cls:'tag-brown',txt:'BROWN'});
+  if(notes.includes('BLUE'))  tags.push({cls:'tag-blue', txt:'BLUE'});
+
+  // Service type
+  const rn=String(job.round_name||'').toUpperCase();
+  if(rn.includes('ECO')) tags.push({cls:'tag-eco',txt:'ECO'});
+  else tags.push({cls:'tag-wb',txt:'WB'});
+
+  // Payment
+  if(pay==='direct_debit'||notes.includes('DIRECT DEBIT')||notes.includes(' DD'))
+    tags.push({cls:'tag-dd',txt:'DD'});
+  else if(notes.includes('PAYPAL')||notes.includes('PAYPAL AUTO'))
+    tags.push({cls:'tag-paypal',txt:'PayPal'});
+  else{
+    const pr=parseFloat(job.price||0);
+    if(pr>0) tags.push({cls:'tag-cash',txt:'£'+pr.toFixed(2)});
+  }
+  return tags;
+}
+
+function jobNote(job){
+  // Strip bin colours and payment methods — just show genuine notes
+  let n=String(job.notes||'');
+  n=n.replace(/\b(GREY|GREEN|BROWN|BLUE)\s*(BIN)?\b/gi,'')
+     .replace(/\bDIRECT\s*DEBIT\b/gi,'').replace(/\bPAYPAL(\s*AUTO)?\b/gi,'')
+     .replace(/\bDD\b/g,'').replace(/\|/g,' ').replace(/\s+/g,' ').trim();
+  return n;
+}
+
+function filteredJobs(){
+  let jj=jobs;
+  if(curFilter==='due')    jj=jj.filter(j=>j.status==='pending'||j.status==='return');
+  if(curFilter==='done')   jj=jj.filter(j=>j.status==='done');
+  if(curFilter==='missed') jj=jj.filter(j=>j.status==='missed');
+  if(curFilter==='return') jj=jj.filter(j=>j.status==='return');
+  if(whatsLeftOnly)        jj=jj.filter(j=>j.status==='pending'||j.status==='return');
+  return jj;
 }
 
 function render(){
+  updateStats();
   const list=document.getElementById('jobList');
   list.innerHTML='';
-  const pending=jobs.filter(j=>j.status==='pending'||j.status==='return');
-  const done   =jobs.filter(j=>j.status==='done'||j.status==='missed');
-
-  if(!jobs.length){
-    list.innerHTML=`<div class="empty"><div class="empty-icon">🎉</div><h3>All done!</h3><p>No jobs scheduled today.</p></div>`;
-  } else {
-    if(pending.length){ addLbl(list,`To Do — ${pending.length} remaining`); pending.forEach(j=>list.appendChild(card(j))); }
-    if(done.length)   { addLbl(list,`Completed — ${done.length}`);          done.forEach(j=>list.appendChild(card(j)));    }
+  const fj=filteredJobs();
+  if(!fj.length){
+    list.innerHTML=`<div class="empty-state"><div class="empty-icon">🎉</div>
+      <div class="empty-title">${whatsLeftOnly||curFilter!=='all'?'Nothing here':'All done!'}</div>
+      <div class="empty-sub">No jobs to show</div></div>`;
+    return;
   }
-  stats();
+
+  // Group by street+postcode
+  const groups={};
+  const groupOrder=[];
+  fj.forEach(j=>{
+    const {street}=parseAddr(j.address);
+    const key=(street||j.address||'Unknown')+'|'+(j.postcode||'');
+    if(!groups[key]){ groups[key]={street:street||j.address,postcode:j.postcode||'',jobs:[]}; groupOrder.push(key); }
+    groups[key].jobs.push(j);
+  });
+
+  groupOrder.forEach(key=>{
+    const g=groups[key];
+    list.appendChild(makeStreetGroup(g));
+  });
 }
 
-function addLbl(p,t){
-  const d=document.createElement('div');
-  d.className='section-lbl';d.textContent=t;p.appendChild(d);
-}
+function makeStreetGroup(g){
+  const total=g.jobs.length;
+  const doneCount=g.jobs.filter(j=>j.status==='done'||j.status==='missed').length;
+  const allDone=doneCount===total;
+  const mapsUrl=`https://maps.google.com/?q=${encodeURIComponent(g.street+(g.postcode?' '+g.postcode:''))}`;
 
-function card(job){
-  // Address: use direct job columns (JARVIS-pushed) or customer join (manual)
-  const c  = job.customer||{};
-  const addr    = job.address    || c.address    || '';
-  const pc      = job.postcode   || c.postcode   || '';
-  const notes   = job.notes      || c.notes      || '';
-  const pr      = parseFloat(job.price || c.price || 0);
-  const payMeth = job.payment_method || c.payment_method || 'cash';
-  const dd      = payMeth === 'direct_debit';
-  const roundName = job.round_name || '';
-  const idx = jobs.indexOf(job)+1;
   const el=document.createElement('div');
-  el.className=`job ${job.status}`;
-  el.id=`card-${job.id}`;
+  el.className='street-group'+(allDone?' collapsed':'');
+
+  const streetProg=`${doneCount}/${total}`;
   el.innerHTML=`
-    <div class="job-inner">
-      <div class="job-stripe"></div>
-      <div class="job-body">
-        <div class="job-top">
-          <div>
-            <div class="job-name">JOB #${String(idx).padStart(3,'0')}${roundName?' · '+roundName:''}</div>
-            <div class="job-addr">${addr}${pc?' · '+pc:''}</div>
-          </div>
-          <div class="job-price">${pr>0?'£'+pr.toFixed(2):'—'}</div>
-        </div>
-        ${notes?`<div class="job-note">📋 ${notes}</div>`:''}
-        <div class="job-badge ${dd?'dd':''}">${dd?'🔄 Direct Debit':'💷 Cash / Card'}</div>
-        <div class="job-acts">
-          <button class="jbtn jbtn-done  ${job.status==='done'  ?'on':''}" onclick="setStatus('${job.id}','done')">  ✓ Done</button>
-          <button class="jbtn jbtn-miss  ${job.status==='missed'?'on':''}" onclick="setStatus('${job.id}','missed')">✗ Missed</button>
-          <button class="jbtn jbtn-ret   ${job.status==='return'?'on':''}" onclick="setStatus('${job.id}','return')">↩ Return</button>
-        </div>
-        <div class="done-lbl">✓ Cleaned</div>
-        <div class="miss-lbl">✗ Missed — flagged</div>
-        <div class="ret-lbl">↩ Return visit</div>
+    <div class="street-hdr" onclick="toggleGroup(this)">
+      <div>
+        <div class="street-name">${g.street}</div>
+        ${g.postcode?`<div class="street-pc">${g.postcode}</div>`:''}
       </div>
+      <div class="street-meta">
+        <span class="street-prog ${allDone?'done':''}">${streetProg}</span>
+        <span class="chevron">▾</span>
+      </div>
+    </div>
+    <div class="street-body">
+      <button class="mark-all-btn ${allDone?'done-all':''}" onclick="markStreetDone(this,'${escId(g.street)}','${escId(g.postcode)}')">
+        ${allDone?'✓ All done':'✓ Mark All Done'}
+      </button>
+      <button class="maps-btn" onclick="window.open('${mapsUrl}','_blank')">
+        📍 Open ${g.street} in Google Maps
+      </button>
+      ${g.jobs.map(j=>makeJobRow(j)).join('')}
     </div>`;
   return el;
 }
 
-// ═══════════════════════════════════════
-// STATUS
-// ═══════════════════════════════════════
-async function setStatus(id,status){
-  const job=jobs.find(j=>j.id===id);
-  if(!job) return;
-  const payMeth=job.payment_method||(job.customer||{}).payment_method||'cash';
-  const dd=payMeth==='direct_debit';
-  if(status==='done'&&!dd){ payJob=job; openPay(job); return; }
-  await apply(job,status,null,null);
+function makeJobRow(job){
+  const {house}=parseAddr(job.address);
+  const tags=parseTags(job);
+  const note=jobNote(job);
+  const addr=String(job.address||'').trim();
+  const pc=String(job.postcode||'').trim();
+  const mapsUrl=`https://maps.google.com/?q=${encodeURIComponent(addr+(pc?' '+pc:''))}`;
+  const rowCls=job.status==='done'?'done-row':job.status==='missed'?'missed-row':'';
+  const doneCls=job.status==='done'?'on':'';
+  const missCls=job.status==='missed'?'on':'';
+  const retCls=job.status==='return'?'on':'';
+
+  return `<div class="job-row ${rowCls}" id="row-${job.id}">
+    <div class="job-num">${house||'#'}</div>
+    <div class="job-info">
+      <div class="job-tags">
+        ${tags.map(t=>`<span class="tag ${t.cls}">${t.txt}</span>`).join('')}
+      </div>
+      ${note?`<div class="job-note-txt">📋 ${note}</div>`:''}
+    </div>
+    <div class="job-btns">
+      <button class="jb jb-map"  onclick="window.open('${mapsUrl}','_blank')" title="Map">📍</button>
+      <button class="jb jb-ret ${retCls}"  onclick="setSt('${job.id}','return')" title="Return">↩</button>
+      <button class="jb jb-miss ${missCls}" onclick="setSt('${job.id}','missed')" title="Missed">✗</button>
+      <button class="jb jb-done ${doneCls}" onclick="setSt('${job.id}','done')"   title="Done">✓</button>
+    </div>
+  </div>`;
 }
 
-async function apply(job,status,amt,method){
+function escId(s){ return String(s||'').replace(/'/g,"\\'"); }
+
+function toggleGroup(hdr){ hdr.closest('.street-group').classList.toggle('collapsed'); }
+
+async function markStreetDone(btn,street,pc){
+  const toMark=jobs.filter(j=>{
+    const{street:s}=parseAddr(j.address);
+    const k=(s||j.address||'')+'|'+(j.postcode||'');
+    const target=street+'|'+pc;
+    return k===target && j.status==='pending';
+  });
+  for(const j of toMark) await applyStatus(j,'done',null,null);
+}
+
+// ══════════════════════════════════════
+// STATUS UPDATES
+// ══════════════════════════════════════
+async function setSt(id,status){
+  const job=jobs.find(j=>j.id===id);
+  if(!job) return;
+  const pay=String(job.payment_method||'').toLowerCase();
+  const dd=pay==='direct_debit'||String(job.notes||'').toUpperCase().includes('DIRECT DEBIT');
+  const pp=String(job.notes||'').toUpperCase().includes('PAYPAL');
+  if(status==='done'&&!dd&&!pp){ payJob=job; openPayModal(job); return; }
+  await applyStatus(job,status,null,null);
+}
+
+async function applyStatus(job,status,amt,method){
   job.status=status;
   if(amt){ job.payment_amount=amt; job.payment_method=method; job.payment_status='paid'; }
   render();
   const ch={job_id:job.id,status,amt,method,ts:new Date().toISOString()};
-  if(navigator.onLine&&!DEMO){ await push(ch); }
-  else { queue.push(ch); localStorage.setItem('rs_q',JSON.stringify(queue)); updateBadge(); }
-  const n=(job.customer||{}).name||'Customer';
-  if(status==='done')   toast(`✓ ${n}`,       'success');
-  if(status==='missed') toast(`✗ ${n} missed`, 'error');
-  if(status==='return') toast(`↩ ${n} — return`,'warn');
+  if(navigator.onLine&&!DEMO) await push(ch);
+  else{ queue.push(ch); localStorage.setItem('rs_q',JSON.stringify(queue)); updateBadge(); }
+  const addr=String(job.address||'').split(' ').slice(0,3).join(' ');
+  if(status==='done')   toast('✓ '+addr,'s');
+  if(status==='missed') toast('✗ '+addr+' missed','e');
+  if(status==='return') toast('↩ '+addr+' return','w');
 }
 
 async function push(ch){
   try{
     const u={status:ch.status,completed_at:ch.ts};
-    if(ch.amt){ u.payment_amount=ch.amt; u.payment_method=ch.method; u.payment_status='paid'; }
+    if(ch.amt){u.payment_amount=ch.amt;u.payment_method=ch.method;u.payment_status='paid';}
     await sb.from('jobs_live').update(u).eq('id',ch.job_id);
     if(ch.amt) await sb.from('payments').insert({
       company_id:op.company_id,job_id:ch.job_id,
-      operative_id:op.id,amount:ch.amt,method:ch.method,
+      operative_id:op.id,amount:ch.amt,method:ch.method
     });
   }catch{
-    queue.push(ch);
-    localStorage.setItem('rs_q',JSON.stringify(queue));
-    updateBadge();
+    queue.push(ch); localStorage.setItem('rs_q',JSON.stringify(queue)); updateBadge();
   }
 }
 
 async function flush(){
   if(DEMO||!queue.length) return;
-  toast(`Syncing ${queue.length} update${queue.length>1?'s':''}…`,'info');
+  toast(`Syncing ${queue.length}…`,'i');
   const q=[...queue]; queue=[]; localStorage.setItem('rs_q','[]'); updateBadge();
   for(const c of q) await push(c);
-  toast('All synced ✓','success');
+  toast('Synced ✓','s');
 }
 
-async function doSync(){
-  await flush();
-  if(DEMO){ toast('Demo mode','info'); return; }
-  await fetchJobs();
-}
+async function doSync(){ await flush(); if(!DEMO) await fetchJobs(); else toast('Demo mode','i'); }
+function updateBadge(){ const b=document.getElementById('syncCnt'); b.style.display=queue.length?'inline':'none'; b.textContent=queue.length; }
 
-function updateBadge(){
-  const b=document.getElementById('syncCnt');
-  b.style.display=queue.length?'inline':'none';
-  b.textContent=queue.length;
-}
-
-// ═══════════════════════════════════════
-// PAYMENT
-// ═══════════════════════════════════════
-function openPay(job){
-  const c=job.customer||{};
-  const addr=job.address||c.address||'';
-  const pr=parseFloat(job.price||c.price||0);
-  document.getElementById('payName').textContent=(addr||'').split(',')[0]||'Customer';
+// ══════════════════════════════════════
+// PAYMENT MODAL
+// ══════════════════════════════════════
+function openPayModal(job){
+  const pr=parseFloat(job.price||0);
+  const addr=String(job.address||'').split(',')[0];
+  document.getElementById('payAddr').textContent=addr||'Customer';
   document.getElementById('payAmt').textContent=`£${pr.toFixed(2)}`;
-  payMethod='cash';
+  payMeth='cash';
   document.getElementById('mCash').classList.add('sel');
   document.getElementById('mCard').classList.remove('sel');
   document.getElementById('payModal').classList.add('open');
 }
-function pickMethod(m){
-  payMethod=m;
-  document.getElementById('mCash').classList.toggle('sel',m==='cash');
-  document.getElementById('mCard').classList.toggle('sel',m==='card');
-}
+function pickMeth(m){ payMeth=m; document.getElementById('mCash').classList.toggle('sel',m==='cash'); document.getElementById('mCard').classList.toggle('sel',m==='card'); }
 async function confirmPay(){
   if(!payJob) return;
-  const c=payJob.customer||{};
-  const pr=parseFloat(payJob.price||c.price||0);
+  const pr=parseFloat(payJob.price||0);
   document.getElementById('payModal').classList.remove('open');
-  await apply(payJob,'done',pr,payMethod);
+  await applyStatus(payJob,'done',pr,payMeth);
   payJob=null;
 }
 async function skipPay(){
   document.getElementById('payModal').classList.remove('open');
-  if(payJob){ await apply(payJob,'done',null,null); payJob=null; }
+  if(payJob){ await applyStatus(payJob,'done',null,null); payJob=null; }
 }
 
-// ═══════════════════════════════════════
-// STATS
-// ═══════════════════════════════════════
-function stats(){
+// ══════════════════════════════════════
+// STATS + FILTERS
+// ══════════════════════════════════════
+function updateStats(){
   const done  =jobs.filter(j=>j.status==='done').length;
   const miss  =jobs.filter(j=>j.status==='missed').length;
+  const ret   =jobs.filter(j=>j.status==='return').length;
   const left  =jobs.filter(j=>j.status==='pending'||j.status==='return').length;
   const cash  =jobs.reduce((s,j)=>s+parseFloat(j.payment_amount||0),0);
   const total =jobs.length;
   document.getElementById('sDone').textContent=done;
   document.getElementById('sMiss').textContent=miss;
+  document.getElementById('sRet').textContent=ret;
   document.getElementById('sLeft').textContent=left;
   document.getElementById('sCash').textContent=`£${cash.toFixed(0)}`;
   document.getElementById('progFill').style.width=total?Math.round(((done+miss)/total)*100)+'%':'0%';
+
+  // Filter counts
+  document.getElementById('fcAll').textContent=total;
+  document.getElementById('fcDue').textContent=left;
+  document.getElementById('fcDone').textContent=done;
+  document.getElementById('fcMiss').textContent=miss;
+  document.getElementById('fcRet').textContent=ret;
 }
 
-// ═══════════════════════════════════════
-// HELPERS
-// ═══════════════════════════════════════
+function setFilter(f,el){
+  curFilter=f;
+  document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  render();
+}
+
+function toggleWhatsLeft(){
+  whatsLeftOnly=!whatsLeftOnly;
+  document.getElementById('whatsLeftBtn').classList.toggle('active',whatsLeftOnly);
+  render();
+}
+
+// ══════════════════════════════════════
+// LOGOUT + HELPERS
+// ══════════════════════════════════════
 function doLogout(){
-  if(queue.length&&!DEMO&&!confirm(`${queue.length} unsynced — logout anyway?`)) return;
+  if(queue.length&&!DEMO&&!confirm(`${queue.length} unsynced — logout?`)) return;
   localStorage.removeItem('rs_op');
   op=null;jobs=[];pin='';dots();
-  document.getElementById('jobScreen').classList.remove('active');
-  document.getElementById('loginScreen').classList.add('active');
+  document.getElementById('jobs').classList.remove('active');
+  document.getElementById('login').classList.add('active');
   document.getElementById('pinErr').textContent='';
 }
 function load(t='Loading…'){ document.getElementById('loaderTxt').textContent=t; document.getElementById('loader').classList.add('show'); }
 function hide(){ document.getElementById('loader').classList.remove('show'); }
-let _t;
+let _tt;
 function toast(msg,type=''){
   const el=document.getElementById('toast');
   el.textContent=msg; el.className=`toast show ${type}`;
-  clearTimeout(_t); _t=setTimeout(()=>el.classList.remove('show'),2800);
+  clearTimeout(_tt); _tt=setTimeout(()=>el.classList.remove('show'),2800);
 }
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 </script>
